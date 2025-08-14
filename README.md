@@ -67,7 +67,6 @@ Our plugin provides significant advantages over MarkItDown's default Excel conve
 - ✅ Better handling of merged cells and complex layouts
 - ✅ Cleaner table structure without empty columns/rows
 - ✅ Enhanced metadata support
-- ✅ Multi-sheet processing with proper headers
 
 #### Example Comparison
 
@@ -122,6 +121,11 @@ markitdown --list-plugins
 # Install with plugin support
 pip install aspose-cells-python[markitdown]
 
+OR
+
+# Install plugin from source
+pip install -e .[markitdown]
+
 # The plugin is automatically registered
 from markitdown import MarkItDown
 
@@ -175,23 +179,7 @@ ws.extend(data)
 
 This project is licensed under the Aspose Split License Agreement - see the [LICENSE](license/Aspose_Split-License-Agreement_2025-07-08_WIP.txt) file for details.
 
-### License Summary
-
-This software uses a **Split License** model:
-
-- **Apache 2.0 License** applies if you are:
-  - Using in Non-Commercial Open Source projects
-  - Using as a transitive dependency
-  - A Qualifying Business (< 200 employees, < $1M annual revenue)
-  - A Non-Profit Entity for public interest missions
-
-- **Commercial License** required for all other uses. Purchase at [aspose.org/pricing](https://aspose.org/pricing)
-
 Part of the [Aspose.org](https://aspose.org) open source ecosystem.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Requirements
 
