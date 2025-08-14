@@ -2,7 +2,7 @@
 
 High-performance Python Excel processing library with advanced conversion capabilities. Can be used standalone or as a MarkItDown plugin for superior Excel-to-Markdown conversion.
 
-[![License: Split](https://img.shields.io/badge/License-Split-blue.svg)](https://aspose.org/pricing)
+[![License: Split](https://img.shields.io/badge/License-Split-blue.svg)](https://aspose.org/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
 ## Overview
