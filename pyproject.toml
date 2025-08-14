@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aspose-cells-python"
+version = "1.0.0"
+description = "Modern Pythonic Excel processing library with plugin ecosystem"
+authors = [
+    {name = "Aspose.Cells Team", email = "cells@aspose.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+license = {text = "MIT"}
+keywords = ["excel", "xlsx", "spreadsheet", "aspose", "cells", "python", "markitdown", "markdown", "converter", "plugin"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[project.optional-dependencies]
+markitdown = ["markitdown>=0.1.0"]
+
+[project.entry-points."markitdown.plugin"]
+aspose-cells-python = "aspose.cells.plugins.markitdown_plugin"
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aspose*"]
