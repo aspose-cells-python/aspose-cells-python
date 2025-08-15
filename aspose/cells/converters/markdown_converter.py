@@ -31,30 +31,25 @@ class MarkdownConverter:
         return "\n".join(result_parts).strip()
     
     def _create_config(self, **kwargs) -> dict:
-        """Create config with defaults."""
+        """Create config with simplified defaults."""
         return {
             'sheet_name': kwargs.get('sheet_name'),
-            'include_headers': kwargs.get('include_headers', True),
-            'all_sheets': kwargs.get('all_sheets', False),
             'include_metadata': kwargs.get('include_metadata', False),
-            'compact_format': kwargs.get('compact_format', False),
-            'preserve_data_types': kwargs.get('preserve_data_types', False),
-            'cell_value_mode': kwargs.get('cell_value_mode', 'display'),
-            'include_hyperlinks': kwargs.get('include_hyperlinks', True),
-            'show_formulas': kwargs.get('show_formulas', False)
+            'value_mode': kwargs.get('value_mode', 'value'),  # "value" shows calculated results, "formula" shows formulas
+            'include_hyperlinks': kwargs.get('include_hyperlinks', True)
         }
     
     def _get_sheets(self, workbook: 'Workbook', config: dict) -> List['Worksheet']:
-        """Get sheets to process."""
+        """Get sheets to process - specific sheet by name or all sheets."""
         sheet_name = config['sheet_name']
         if sheet_name and sheet_name in workbook._worksheets:
+            # Convert specific sheet by name
             return [workbook._worksheets[sheet_name]]
-        elif config['all_sheets']:
-            return list(workbook._worksheets.values())
-        return [workbook.active] if workbook.active else []
+        # Convert all sheets if no specific sheet is requested
+        return list(workbook._worksheets.values())
     
     def _create_metadata(self, workbook: 'Workbook') -> str:
-        """Create metadata section."""
+        """Create simplified metadata section without source file."""
         lines = [
             "# Document Metadata", "",
             f"- **Source Type**: Excel Workbook",
@@ -63,20 +58,14 @@ class MarkdownConverter:
             f"- **Sheet Names**: {', '.join(workbook._worksheets.keys())}",
             f"- **Active Sheet**: {workbook.active.name if workbook.active else 'None'}"
         ]
-        if hasattr(workbook, '_filename') and workbook._filename:
-            lines.insert(-1, f"- **Source File**: {workbook._filename.name}")
         return "\n".join(lines)
     
     def _process_sheet(self, worksheet: 'Worksheet', config: dict) -> str:
-        """Process sheet to markdown."""
+        """Process sheet to markdown with clean formatting."""
         if not worksheet or not worksheet._cells:
             return ""
         
         parts = [f"## {worksheet.name}", ""]
-        
-        if config['include_metadata'] and not config['compact_format']:
-            stats = f"**Dimensions**: {worksheet.max_row} rows × {worksheet.max_column} columns"
-            parts.extend([stats, ""])
         
         table = self._create_table(worksheet, config)
         if table:
@@ -111,18 +100,14 @@ class MarkdownConverter:
             return ""
         
         result = []
-        if config['include_headers'] and all_data:
+        if all_data:
+            # Always include headers with simplified logic
             header = all_data[0]
-            # Enhanced header generation with better column names
             header_line = "| " + " | ".join(self._generate_column_header(cell, i) for i, cell in enumerate(header)) + " |"
             separator = "| " + " | ".join("---" for _ in header) + " |"
             result.extend([header_line, separator])
             
             for row in all_data[1:]:
-                data_line = "| " + " | ".join(str(cell) if cell else "" for cell in row) + " |"
-                result.append(data_line)
-        else:
-            for row in all_data:
                 data_line = "| " + " | ".join(str(cell) if cell else "" for cell in row) + " |"
                 result.append(data_line)
         
@@ -176,19 +161,10 @@ class MarkdownConverter:
             if url_detected != cell.value:
                 return url_detected
         
-        if config['cell_value_mode'] == 'formula' and cell.is_formula():
+        if config['value_mode'] == 'formula' and cell.is_formula():
             value = cell.formula or cell.value
-        elif config['cell_value_mode'] == 'raw':
-            value = cell.value
         else:
             value = cell.calculated_value
-        
-        if config['show_formulas'] and cell.is_formula():
-            display_value = self._format_value(value)
-            if cell.calculated_value is not None:
-                calc_value = self._format_value(cell.calculated_value)
-                return f"{display_value} (Result: {calc_value})"
-            return f"FORMULA: {display_value}"
         
         return self._format_value(value)
     

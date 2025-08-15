@@ -83,22 +83,17 @@ class ExcelEnhancerConverter:
 
             converter = MarkdownConverter()
 
-            # Allow overriding via kwargs, but default to enhanced options
+            # Simplified and optimized parameters for better user experience
             convert_kwargs = {
-                "all_sheets": kwargs.get("all_sheets", True),
-                "include_headers": kwargs.get("include_headers", True),
+                "sheet_name": kwargs.get("sheet_name", None),  # Convert specific sheet by name, None means all sheets
                 "include_metadata": kwargs.get("include_metadata", True),
-                "compact_format": kwargs.get("compact_format", True),
-                "preserve_data_types": kwargs.get("preserve_data_types", True),
-                # Enhanced options for better formula and hyperlink handling
-                "cell_value_mode": kwargs.get("cell_value_mode", "display"),  # Show calculated results by default
+                "value_mode": kwargs.get("value_mode", "value"),  # "value" shows calculated results, "formula" shows formulas
                 "include_hyperlinks": kwargs.get("include_hyperlinks", True),  # Convert hyperlinks to markdown
-                "show_formulas": kwargs.get("show_formulas", False),  # Don't show formulas by default
             }
             markdown_content = converter.convert_workbook(workbook, **convert_kwargs)
 
             # Optional generator banner for disambiguation in outputs
-            if kwargs.get("include_generator_banner", True):
+            if kwargs.get("include_generator_info", False):
                 banner = "<!-- Generator: Aspose.Cells.Python MarkItDown Plugin -->\n\n"
                 markdown_content = banner + markdown_content
 

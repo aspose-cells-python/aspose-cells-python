@@ -62,11 +62,11 @@ markdown_str = wb.exportAs(FileFormat.MARKDOWN)
 Our plugin provides significant advantages over MarkItDown's default Excel converter:
 
 **Key Advantages:**
-- ⚡ Faster processing performance (2-3x speed improvement in typical cases)
-- ✅ Hyperlink preservation and formatting
-- ✅ Better handling of merged cells and complex layouts
-- ✅ Cleaner table structure without empty columns/rows
-- ✅ Enhanced metadata support
+-  Faster processing performance (2-3x speed improvement in typical cases)
+-  Hyperlink preservation and formatting
+-  Better handling of merged cells and complex layouts
+-  Cleaner table structure without empty columns/rows
+-  Enhanced metadata support
 
 #### Example Comparison
 
@@ -138,6 +138,71 @@ print(result.text_content)
 - Document metadata and conversion info
 - Multi-sheet processing with headers
 - Professional table formatting
+- Configurable conversion parameters for fine-tuned output
+
+### Plugin Configuration Parameters
+
+The MarkItDown plugin provides a simplified, user-friendly API for customizing Excel-to-Markdown conversion:
+
+```python
+from markitdown import MarkItDown
+
+md = MarkItDown(enable_plugins=True)
+
+# Simplified parameters with sensible defaults
+result = md.convert("spreadsheet.xlsx",
+    sheet_name=None,           # Convert specific sheet by name (None = all sheets)
+    include_metadata=True,     # Include workbook metadata in output
+    value_mode="value",        # "value" (calculated results) or "formula" (formulas)
+    include_hyperlinks=True,   # Convert Excel hyperlinks to Markdown links
+    include_generator_info=False  # Add Aspose plugin identification banner
+)
+```
+
+#### Parameter Details
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sheet_name` | str\|None | None | Specify sheet name to convert only that sheet. When None, converts all sheets in the workbook. |
+| `include_metadata` | bool | True | Includes workbook metadata such as conversion date, sheet count, and sheet names in the output header. |
+| `value_mode` | str | "value" | Controls cell content: "value" shows calculated results, "formula" shows raw formulas where applicable. |
+| `include_hyperlinks` | bool | True | Converts Excel hyperlinks to proper Markdown link syntax `[text](url)` and auto-detects URLs in text. |
+| `include_generator_info` | bool | False | Adds HTML comment identifying the conversion was done by Aspose plugin for transparency. |
+
+#### Usage Examples
+
+**Convert Specific Sheet:**
+```python
+result = md.convert("workbook.xlsx",
+    sheet_name="Summary"      # Only convert the "Summary" sheet
+)
+```
+
+**Minimal Output (data-only):**
+```python
+result = md.convert("data.xlsx",
+    include_metadata=False,
+    include_hyperlinks=False,
+    include_generator_info=False
+)
+```
+
+**Formula Documentation:**
+```python
+result = md.convert("calculations.xlsx",
+    value_mode="formula",
+    include_metadata=True
+)
+```
+
+**Clean Report Format:**
+```python
+result = md.convert("report.xlsx",
+    include_metadata=True,
+    include_hyperlinks=True,
+    include_generator_info=False
+)
+```
 
 
 
