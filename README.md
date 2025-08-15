@@ -118,11 +118,6 @@ markitdown --list-plugins
 ### Python API Usage
 
 ```python
-# Install with plugin support
-pip install aspose-cells-python[markitdown]
-
-OR
-
 # Install plugin from source
 pip install -e .[markitdown]
 
