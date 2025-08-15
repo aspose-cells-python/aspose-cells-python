@@ -18,8 +18,8 @@ Aspose.Cells.Python is a high-performance Excel processing library that provides
 
 ```bash
 # Clone and install
-git clone https://github.com/aspose-cells/aspose-cells-python.git
-cd aspose-cells-python
+git clone https://github.com/aspose-cells/aspose-cells-python-org.git
+cd aspose-cells-python-org
 pip install -e .
 
 # With MarkItDown plugin support
