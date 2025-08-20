@@ -15,6 +15,12 @@ from aspose.cells.utils.exceptions import AsposeException
 class TestWorkbookAdvanced:
     """Advanced tests for Workbook class to improve coverage."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_workbook"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_workbook_loading_files(self, ensure_testdata_dir):
         """Test workbook loading from different file formats."""
         # Create a test XLSX file first
@@ -22,7 +28,7 @@ class TestWorkbookAdvanced:
         ws = wb.active
         ws['A1'] = "Test Data"
         
-        xlsx_file = ensure_testdata_dir / "test_load.xlsx"
+        xlsx_file = self.output_dir / "test_load.xlsx"
         wb.save(str(xlsx_file), FileFormat.XLSX)
         wb.close()
         
@@ -59,7 +65,7 @@ class TestWorkbookAdvanced:
         ws = wb.active
         ws['A1'] = "Save Options Test"
         
-        xlsx_file = ensure_testdata_dir / "save_options.xlsx"
+        xlsx_file = self.output_dir / "save_options.xlsx"
         
         # Test saving with various options
         try:
@@ -350,7 +356,7 @@ class TestWorkbookAdvanced:
         # Test creating backup
         if hasattr(wb, 'create_backup'):
             try:
-                backup_file = ensure_testdata_dir / "backup.xlsx"
+                backup_file = self.output_dir / "backup.xlsx"
                 wb.create_backup(str(backup_file))
                 if backup_file.exists():
                     assert backup_file.stat().st_size > 0

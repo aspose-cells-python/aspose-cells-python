@@ -10,6 +10,7 @@ from .cell import Cell
 from .range import Range
 from .formats import FileFormat, ConversionOptions, CellValue
 from .style import Style, Font, Fill
+from .drawing import Image, ImageFormat, Anchor, AnchorType, ImageCollection
 
 __all__ = [
     "Workbook", 
@@ -21,5 +22,10 @@ __all__ = [
     "CellValue",
     "Style", 
     "Font", 
-    "Fill"
+    "Fill",
+    "Image",
+    "ImageFormat",
+    "Anchor",
+    "AnchorType",
+    "ImageCollection"
 ]

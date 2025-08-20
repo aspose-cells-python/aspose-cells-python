@@ -22,10 +22,16 @@ from aspose.cells.utils.exceptions import FileFormatError
 class TestCsvReader:
     """Comprehensive tests for CSV reader."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_basic_csv_reading(self, ensure_testdata_dir):
         """Test basic CSV file reading."""
         csv_content = "Name,Age,City\nJohn,25,NYC\nJane,30,LA"
-        csv_file = ensure_testdata_dir / "test.csv"
+        csv_file = self.output_dir / "test.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -41,7 +47,7 @@ class TestCsvReader:
     def test_csv_with_custom_delimiter(self, ensure_testdata_dir):
         """Test CSV reading with custom delimiter."""
         csv_content = "Name;Age;City\nJohn;25;NYC\nJane;30;LA"
-        csv_file = ensure_testdata_dir / "test_semicolon.csv"
+        csv_file = self.output_dir / "test_semicolon.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -55,7 +61,7 @@ class TestCsvReader:
     def test_csv_with_quotes(self, ensure_testdata_dir):
         """Test CSV reading with quoted values."""
         csv_content = 'Name,"Age","Description"\n"John Doe",25,"A person from NYC"\n"Jane Smith",30,"Another person"'
-        csv_file = ensure_testdata_dir / "test_quotes.csv"
+        csv_file = self.output_dir / "test_quotes.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -69,7 +75,7 @@ class TestCsvReader:
     def test_csv_empty_values(self, ensure_testdata_dir):
         """Test CSV with empty values."""
         csv_content = "Name,Age,City\nJohn,,NYC\n,30,\n,,"
-        csv_file = ensure_testdata_dir / "test_empty.csv"
+        csv_file = self.output_dir / "test_empty.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -84,7 +90,7 @@ class TestCsvReader:
     def test_csv_boolean_values(self, ensure_testdata_dir):
         """Test CSV with boolean values."""
         csv_content = "Name,Active,Verified\nJohn,TRUE,false\nJane,False,TRUE"
-        csv_file = ensure_testdata_dir / "test_bool.csv"
+        csv_file = self.output_dir / "test_bool.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -100,7 +106,7 @@ class TestCsvReader:
     def test_csv_numeric_values(self, ensure_testdata_dir):
         """Test CSV with various numeric values."""
         csv_content = "Int,Float,Scientific\n42,3.14,1.23e10\n-100,-2.5,-5.67E-8"
-        csv_file = ensure_testdata_dir / "test_numbers.csv"
+        csv_file = self.output_dir / "test_numbers.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -123,7 +129,7 @@ class TestCsvReader:
         """Test CSV with different encodings."""
         # Create UTF-8 file with special characters
         csv_content = "Name,Description\nJohn,Café résumé\nJane,Test"
-        csv_file = ensure_testdata_dir / "test_utf8.csv"
+        csv_file = self.output_dir / "test_utf8.csv"
         
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -138,10 +144,16 @@ class TestCsvReader:
 class TestCsvWriter:
     """Comprehensive tests for CSV writer."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_basic_csv_writing(self, ensure_testdata_dir):
         """Test basic CSV file writing."""
         data = [["Name", "Age", "City"], ["John", 25, "NYC"], ["Jane", 30, "LA"]]
-        csv_file = ensure_testdata_dir / "output_basic.csv"
+        csv_file = self.output_dir / "output_basic.csv"
         
         writer = CsvWriter()
         writer.write(str(csv_file), data)
@@ -158,7 +170,7 @@ class TestCsvWriter:
     def test_csv_writing_with_custom_delimiter(self, ensure_testdata_dir):
         """Test CSV writing with custom delimiter."""
         data = [["A", "B", "C"], [1, 2, 3]]
-        csv_file = ensure_testdata_dir / "output_semicolon.csv"
+        csv_file = self.output_dir / "output_semicolon.csv"
         
         writer = CsvWriter()
         writer.write(str(csv_file), data, delimiter=';')
@@ -171,7 +183,7 @@ class TestCsvWriter:
     def test_csv_writing_with_none_values(self, ensure_testdata_dir):
         """Test CSV writing with None values."""
         data = [["Name", "Age"], ["John", None], [None, 30]]
-        csv_file = ensure_testdata_dir / "output_none.csv"
+        csv_file = self.output_dir / "output_none.csv"
         
         writer = CsvWriter()
         writer.write(str(csv_file), data)
@@ -184,7 +196,7 @@ class TestCsvWriter:
     def test_csv_writing_with_quotes_needed(self, ensure_testdata_dir):
         """Test CSV writing with values that need quotes."""
         data = [["Name", "Description"], ["John Doe", "Person, from NYC"]]
-        csv_file = ensure_testdata_dir / "output_quotes.csv"
+        csv_file = self.output_dir / "output_quotes.csv"
         
         writer = CsvWriter()
         writer.write(str(csv_file), data)
@@ -195,7 +207,7 @@ class TestCsvWriter:
     
     def test_csv_writing_empty_data(self, ensure_testdata_dir):
         """Test CSV writing with empty data."""
-        csv_file = ensure_testdata_dir / "output_empty.csv"
+        csv_file = self.output_dir / "output_empty.csv"
         
         writer = CsvWriter()
         writer.write(str(csv_file), [])
@@ -218,13 +230,19 @@ class TestCsvWriter:
 class TestJsonReader:
     """Comprehensive tests for JSON reader."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_json_list_of_objects(self, ensure_testdata_dir):
         """Test JSON reading with list of objects."""
         json_data = [
             {"name": "John", "age": 25, "city": "NYC"},
             {"name": "Jane", "age": 30, "city": "LA"}
         ]
-        json_file = ensure_testdata_dir / "test_objects.json"
+        json_file = self.output_dir / "test_objects.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_data, f)
@@ -240,7 +258,7 @@ class TestJsonReader:
     def test_json_single_object(self, ensure_testdata_dir):
         """Test JSON reading with single object."""
         json_data = {"name": "John", "age": 25, "active": True}
-        json_file = ensure_testdata_dir / "test_single.json"
+        json_file = self.output_dir / "test_single.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_data, f)
@@ -256,7 +274,7 @@ class TestJsonReader:
     def test_json_list_of_values(self, ensure_testdata_dir):
         """Test JSON reading with list of simple values."""
         json_data = [1, 2, 3, "test", True, None]
-        json_file = ensure_testdata_dir / "test_values.json"
+        json_file = self.output_dir / "test_values.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_data, f)
@@ -272,7 +290,7 @@ class TestJsonReader:
     
     def test_json_single_value(self, ensure_testdata_dir):
         """Test JSON reading with single value."""
-        json_file = ensure_testdata_dir / "test_single_value.json"
+        json_file = self.output_dir / "test_single_value.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump("Hello World", f)
@@ -288,7 +306,7 @@ class TestJsonReader:
             "Sheet1": [{"A": 1, "B": 2}, {"A": 3, "B": 4}],
             "Sheet2": [{"X": "Hello", "Y": "World"}]
         }
-        json_file = ensure_testdata_dir / "test_multisheet.json"
+        json_file = self.output_dir / "test_multisheet.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_data, f)
@@ -304,7 +322,7 @@ class TestJsonReader:
     
     def test_json_empty_list(self, ensure_testdata_dir):
         """Test JSON reading with empty list."""
-        json_file = ensure_testdata_dir / "test_empty_list.json"
+        json_file = self.output_dir / "test_empty_list.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump([], f)
@@ -321,7 +339,7 @@ class TestJsonReader:
             "nested_obj": {"key": "value"},
             "nested_list": [1, 2, 3]
         }
-        json_file = ensure_testdata_dir / "test_nested.json"
+        json_file = self.output_dir / "test_nested.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_data, f)
@@ -344,7 +362,7 @@ class TestJsonReader:
     
     def test_json_invalid_format(self, ensure_testdata_dir):
         """Test JSON reader with invalid JSON."""
-        json_file = ensure_testdata_dir / "test_invalid.json"
+        json_file = self.output_dir / "test_invalid.json"
         
         with open(json_file, 'w', encoding='utf-8') as f:
             f.write("{ invalid json }")
@@ -357,10 +375,16 @@ class TestJsonReader:
 class TestJsonWriter:
     """Comprehensive tests for JSON writer."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_basic_json_writing(self, ensure_testdata_dir):
         """Test basic JSON file writing."""
         data = [["Name", "Age"], ["John", 25], ["Jane", 30]]
-        json_file = ensure_testdata_dir / "output_basic.json"
+        json_file = self.output_dir / "output_basic.json"
         
         # First convert to expected format for JsonWriter
         converted_data = []
@@ -388,7 +412,7 @@ class TestJsonWriter:
     def test_json_writing_with_none_values(self, ensure_testdata_dir):
         """Test JSON writing with None values."""
         data = [{"Name": "John", "Age": None}, {"Name": None, "Age": 30}]
-        json_file = ensure_testdata_dir / "output_none.json"
+        json_file = self.output_dir / "output_none.json"
         
         writer = JsonWriter()
         writer.write(str(json_file), data)
@@ -401,7 +425,7 @@ class TestJsonWriter:
     
     def test_json_writing_empty_data(self, ensure_testdata_dir):
         """Test JSON writing with empty data."""
-        json_file = ensure_testdata_dir / "output_empty.json"
+        json_file = self.output_dir / "output_empty.json"
         
         writer = JsonWriter()
         writer.write(str(json_file), [])
@@ -414,7 +438,7 @@ class TestJsonWriter:
     def test_json_writing_single_row(self, ensure_testdata_dir):
         """Test JSON writing with header only."""
         data = []  # No data rows
-        json_file = ensure_testdata_dir / "output_header_only.json"
+        json_file = self.output_dir / "output_header_only.json"
         
         writer = JsonWriter()
         writer.write(str(json_file), data)
@@ -436,6 +460,12 @@ class TestJsonWriter:
 class TestMarkdownReader:
     """Comprehensive tests for Markdown reader."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_simple_markdown_table(self, ensure_testdata_dir):
         """Test reading simple markdown table."""
         md_content = """| Name | Age | City |
@@ -443,7 +473,7 @@ class TestMarkdownReader:
 | John | 25  | NYC  |
 | Jane | 30  | LA   |"""
         
-        md_file = ensure_testdata_dir / "test_simple.md"
+        md_file = self.output_dir / "test_simple.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -469,7 +499,7 @@ class TestMarkdownReader:
 |------|------------|
 | John | Engineering |"""
         
-        md_file = ensure_testdata_dir / "test_headers.md"
+        md_file = self.output_dir / "test_headers.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -488,7 +518,7 @@ class TestMarkdownReader:
 |------|-------------|
 | Item | Contains pipe |"""
         
-        md_file = ensure_testdata_dir / "test_escaped.md"
+        md_file = self.output_dir / "test_escaped.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -505,7 +535,7 @@ class TestMarkdownReader:
 | John |     | NYC  |
 |      | 30  |      |"""
         
-        md_file = ensure_testdata_dir / "test_empty_cells.md"
+        md_file = self.output_dir / "test_empty_cells.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -523,7 +553,7 @@ This is just text with no tables.
 
 Some more text."""
         
-        md_file = ensure_testdata_dir / "test_no_tables.md"
+        md_file = self.output_dir / "test_no_tables.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -545,7 +575,7 @@ Some more text."""
 | Text   | 42      | 3.14  | TRUE    |
 | More   | -100    | -2.5  | FALSE   |"""
         
-        md_file = ensure_testdata_dir / "test_types.md"
+        md_file = self.output_dir / "test_types.md"
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -559,10 +589,16 @@ Some more text."""
 class TestMarkdownWriter:
     """Comprehensive tests for Markdown writer."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_basic_markdown_writing(self, ensure_testdata_dir):
         """Test basic markdown table writing."""
         data = [["Name", "Age", "City"], ["John", 25, "NYC"], ["Jane", 30, "LA"]]
-        md_file = ensure_testdata_dir / "output_basic.md"
+        md_file = self.output_dir / "output_basic.md"
         
         writer = MarkdownWriter()
         writer.write(str(md_file), data)
@@ -578,7 +614,7 @@ class TestMarkdownWriter:
     def test_markdown_with_none_values(self, ensure_testdata_dir):
         """Test markdown writing with None values."""
         data = [["Name", "Value"], ["John", None], [None, 42]]
-        md_file = ensure_testdata_dir / "output_none.md"
+        md_file = self.output_dir / "output_none.md"
         
         writer = MarkdownWriter()
         writer.write(str(md_file), data)
@@ -590,7 +626,7 @@ class TestMarkdownWriter:
     
     def test_markdown_empty_data(self, ensure_testdata_dir):
         """Test markdown writing with empty data."""
-        md_file = ensure_testdata_dir / "output_empty.md"
+        md_file = self.output_dir / "output_empty.md"
         
         writer = MarkdownWriter()
         writer.write(str(md_file), [])
@@ -603,7 +639,7 @@ class TestMarkdownWriter:
     def test_markdown_special_characters(self, ensure_testdata_dir):
         """Test markdown writing with special characters."""
         data = [["Name", "Description"], ["Test", "Contains pipe char"]]
-        md_file = ensure_testdata_dir / "output_special.md"
+        md_file = self.output_dir / "output_special.md"
         
         writer = MarkdownWriter()
         writer.write(str(md_file), data)
@@ -627,10 +663,16 @@ class TestMarkdownWriter:
 class TestIOIntegration:
     """Integration tests for all IO modules."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_io"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_round_trip_csv(self, ensure_testdata_dir):
         """Test CSV round-trip (write then read)."""
         original_data = [["Name", "Age"], ["John", 25], ["Jane", 30]]
-        csv_file = ensure_testdata_dir / "roundtrip.csv"
+        csv_file = self.output_dir / "roundtrip.csv"
         
         # Write then read
         writer = CsvWriter()
@@ -646,7 +688,7 @@ class TestIOIntegration:
         # Convert to JSON format first
         headers = ["Name", "Age"]
         original_data = [{"Name": "John", "Age": 25}, {"Name": "Jane", "Age": 30}]
-        json_file = ensure_testdata_dir / "roundtrip.json"
+        json_file = self.output_dir / "roundtrip.json"
         
         # Write then read
         writer = JsonWriter()
@@ -664,7 +706,7 @@ class TestIOIntegration:
         original_data = [["Product", "Sales"], ["Laptop", 1000], ["Phone", 2000]]
         
         # Write as CSV
-        csv_file = ensure_testdata_dir / "cross_convert.csv"
+        csv_file = self.output_dir / "cross_convert.csv"
         csv_writer = CsvWriter()
         csv_writer.write(str(csv_file), original_data)
         
@@ -683,7 +725,7 @@ class TestIOIntegration:
                         row_dict[header] = row[i]
                 json_data.append(row_dict)
         
-        json_file = ensure_testdata_dir / "cross_convert.json"
+        json_file = self.output_dir / "cross_convert.json"
         json_writer = JsonWriter()
         json_writer.write(str(json_file), json_data)
         
@@ -707,7 +749,7 @@ class TestIOIntegration:
         unicode_data = [["Name", "Description"], ["Test", "Unicode text αβγ"]]
         
         # Test CSV
-        csv_file = ensure_testdata_dir / "unicode.csv"
+        csv_file = self.output_dir / "unicode.csv"
         csv_writer = CsvWriter()
         csv_writer.write(str(csv_file), unicode_data)
         
@@ -717,7 +759,7 @@ class TestIOIntegration:
         
         # Test JSON (convert to dict format)
         json_data = [{"Name": "Test", "Description": "Unicode text αβγ"}]
-        json_file = ensure_testdata_dir / "unicode.json"
+        json_file = self.output_dir / "unicode.json"
         json_writer = JsonWriter()
         json_writer.write(str(json_file), json_data)
         
@@ -726,7 +768,7 @@ class TestIOIntegration:
         assert json_result[1][1] == "Unicode text αβγ"
         
         # Test Markdown
-        md_file = ensure_testdata_dir / "unicode.md"
+        md_file = self.output_dir / "unicode.md"
         md_writer = MarkdownWriter()
         md_writer.write(str(md_file), unicode_data)
         

@@ -8,6 +8,7 @@ import io
 
 from ...utils import FileFormatError, tuple_to_coordinate
 from .constants import XlsxConstants, XlsxTemplates
+from .image_writer import ImageWriter
 
 if TYPE_CHECKING:
     from ...workbook import Workbook, Worksheet
@@ -202,6 +203,7 @@ class XlsxWriter:
     def __init__(self):
         self.namespaces = XlsxConstants.NAMESPACES
         self.style_manager = StyleManager()
+        self.image_writer = ImageWriter()
     
     def write(self, file_path: str, workbook: 'Workbook', **kwargs) -> None:
         """Write workbook to Excel XLSX file."""
@@ -209,8 +211,9 @@ class XlsxWriter:
     
     def save_workbook(self, workbook: 'Workbook', filename: str, **kwargs):
         """Save workbook to XLSX file with proper styling."""
-        # Reset style manager for new file
+        # Reset managers for new file
         self.style_manager = StyleManager()
+        self.image_writer = ImageWriter()
         
         with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             # Pre-process all cells to build styles
@@ -219,8 +222,11 @@ class XlsxWriter:
             # Build shared strings
             shared_strings = self._build_shared_strings(workbook)
             
+            # Check if workbook has images
+            has_images = self._has_images(workbook)
+            
             # Write core structure files
-            self._write_content_types(zip_file, workbook, bool(shared_strings))
+            self._write_content_types(zip_file, workbook, bool(shared_strings), has_images)
             self._write_rels(zip_file)
             self._write_app_properties(zip_file)
             self._write_core_properties(zip_file)
@@ -240,6 +246,10 @@ class XlsxWriter:
             # Write worksheets
             for idx, worksheet in enumerate(workbook._worksheets.values(), 1):
                 self._write_worksheet(zip_file, worksheet, idx, shared_strings)
+            
+            # Write images if any exist
+            if has_images:
+                self._write_images(zip_file)
     
     def _analyze_styles(self, workbook: 'Workbook'):
         """Pre-analyze all cells to build style tables."""
@@ -263,7 +273,7 @@ class XlsxWriter:
         
         return strings
     
-    def _write_content_types(self, zip_file: zipfile.ZipFile, workbook: 'Workbook', has_shared_strings: bool = True):
+    def _write_content_types(self, zip_file: zipfile.ZipFile, workbook: 'Workbook', has_shared_strings: bool = True, has_images: bool = False):
         """Write [Content_Types].xml with proper formatting."""
         root = ET.Element("Types")
         root.set("xmlns", "http://schemas.openxmlformats.org/package/2006/content-types")
@@ -273,6 +283,34 @@ class XlsxWriter:
             default = ET.SubElement(root, "Default")
             default.set("Extension", ext)
             default.set("ContentType", content_type)
+        
+        # Add image content types if images exist
+        if has_images:
+            # Get image extensions from all worksheets
+            image_extensions = set()
+            for worksheet in workbook._worksheets.values():
+                if hasattr(worksheet, 'images') and worksheet.images:
+                    for image in worksheet.images:
+                        if hasattr(image, 'format') and image.format:
+                            ext = image.format.value.lower()
+                            if ext == 'jpg':
+                                ext = 'jpeg'  # Normalize to standard MIME type
+                            image_extensions.add(ext)
+            
+            # Add content types for all found image extensions
+            for ext in image_extensions:
+                if ext == 'jpeg':
+                    content_type = 'image/jpeg'
+                elif ext == 'png':
+                    content_type = 'image/png'
+                elif ext == 'gif':
+                    content_type = 'image/gif'
+                else:
+                    content_type = f'image/{ext}'
+                
+                default = ET.SubElement(root, "Default")
+                default.set("Extension", ext)
+                default.set("ContentType", content_type)
         
         # Override content types
         overrides = [
@@ -293,6 +331,15 @@ class XlsxWriter:
                 f"/xl/worksheets/sheet{idx}.xml",
                 XlsxConstants.CONTENT_TYPES['overrides']['worksheet']
             ))
+        
+        # Add drawing overrides if images exist
+        if has_images:
+            for idx, worksheet in enumerate(workbook._worksheets.values(), 1):
+                if self._worksheet_has_images(worksheet):
+                    overrides.append((
+                        f"/xl/drawings/drawing{idx}.xml",
+                        "application/vnd.openxmlformats-officedocument.drawing+xml"
+                    ))
         
         for part_name, content_type in overrides:
             override = ET.SubElement(root, "Override")
@@ -377,20 +424,31 @@ class XlsxWriter:
         
         self._write_xml_to_zip(zip_file, "xl/_rels/workbook.xml.rels", root)
     
-    def _write_worksheet_rels(self, zip_file: zipfile.ZipFile, sheet_id: int, hyperlinks: list):
-        """Write worksheet relationships for hyperlinks."""
-        if not hyperlinks:
+    def _write_worksheet_rels(self, zip_file: zipfile.ZipFile, sheet_id: int, hyperlinks: list, drawing_id: str = None):
+        """Write worksheet relationships for hyperlinks and drawings."""
+        if not hyperlinks and not drawing_id:
             return
             
         root = ET.Element("Relationships")
         root.set("xmlns", "http://schemas.openxmlformats.org/package/2006/relationships")
         
-        for idx, cell in enumerate(hyperlinks, 1):
+        rel_id_counter = 1
+        
+        # Add hyperlink relationships
+        for cell in hyperlinks:
             relationship = ET.SubElement(root, "Relationship")
-            relationship.set("Id", f"rId{idx}")
+            relationship.set("Id", f"rId{rel_id_counter}")
             relationship.set("Type", XlsxConstants.REL_TYPES['hyperlink'])
             relationship.set("Target", cell.hyperlink)
             relationship.set("TargetMode", "External")
+            rel_id_counter += 1
+        
+        # Add drawing relationship
+        if drawing_id:
+            relationship = ET.SubElement(root, "Relationship")
+            relationship.set("Id", drawing_id)
+            relationship.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing")
+            relationship.set("Target", f"../drawings/drawing{sheet_id}.xml")
         
         self._write_xml_to_zip(zip_file, f"xl/worksheets/_rels/sheet{sheet_id}.xml.rels", root)
     
@@ -469,8 +527,18 @@ class XlsxWriter:
                 hyperlink = ET.SubElement(hyperlinks_elem, "hyperlink")
                 hyperlink.set("ref", cell.coordinate)
                 hyperlink.set("r:id", f"rId{idx}")
-            # Create worksheet relationships for hyperlinks
-            self._write_worksheet_rels(zip_file, sheet_id, hyperlinks)
+        
+        # Handle images
+        drawing_id = None
+        if self._worksheet_has_images(worksheet):
+            drawing_id = self._write_drawing_for_worksheet(zip_file, worksheet, sheet_id)
+            # Add drawing reference to worksheet
+            drawing_elem = ET.SubElement(root, "drawing")
+            drawing_elem.set("r:id", drawing_id)
+        
+        # Create worksheet relationships (hyperlinks and drawings)
+        if hyperlinks or drawing_id:
+            self._write_worksheet_rels(zip_file, sheet_id, hyperlinks, drawing_id)
         
         self._write_xml_to_zip(zip_file, f"xl/worksheets/sheet{sheet_id}.xml", root)
     
@@ -806,3 +874,65 @@ class XlsxWriter:
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = i
+    
+    def _has_images(self, workbook: 'Workbook') -> bool:
+        """Check if workbook contains any images."""
+        for worksheet in workbook._worksheets.values():
+            if hasattr(worksheet, 'images') and len(worksheet.images) > 0:
+                return True
+        return False
+    
+    def _write_images(self, zip_file: zipfile.ZipFile):
+        """Write all image files to the archive."""
+        # Write image files
+        for path, data in self.image_writer.get_image_files().items():
+            zip_file.writestr(path, data)
+    
+    def _worksheet_has_images(self, worksheet: 'Worksheet') -> bool:
+        """Check if a specific worksheet has images."""
+        return hasattr(worksheet, 'images') and len(worksheet.images) > 0
+    
+    def _write_drawing_for_worksheet(self, zip_file: zipfile.ZipFile, worksheet: 'Worksheet', sheet_id: int) -> str:
+        """Write drawing XML and relationships for worksheet images."""
+        if not self._worksheet_has_images(worksheet):
+            return None
+        
+        # Create a temporary image writer for this drawing
+        drawing_writer = ImageWriter()
+        
+        # Create drawing XML
+        images = list(worksheet.images)
+        drawing_xml = drawing_writer.create_drawing_xml(images)
+        
+        # Write drawing XML
+        drawing_path = f"xl/drawings/drawing{sheet_id}.xml"
+        zip_file.writestr(drawing_path, drawing_xml)
+        
+        # Write drawing relationships
+        drawing_rels_xml = drawing_writer.create_drawing_rels_xml()
+        if drawing_rels_xml:
+            drawing_rels_path = f"xl/drawings/_rels/drawing{sheet_id}.xml.rels"
+            zip_file.writestr(drawing_rels_path, drawing_rels_xml)
+        
+        # Copy image files to main image writer for later writing
+        for path, data in drawing_writer.get_image_files().items():
+            self.image_writer.image_files[path] = data
+        
+        # Copy content types entries to main image writer
+        for path, data in drawing_writer.get_image_files().items():
+            # Extract extension for content type tracking
+            filename = Path(path).name
+            ext = filename.split('.')[-1].lower()
+            if ext == 'jpg':
+                ext = 'jpeg'
+            # Store in main image writer for content type generation
+            self.image_writer.image_files[path] = data
+        
+        # Return the drawing relationship ID (should be after hyperlinks)
+        # We need to account for any existing relationships
+        rel_id = 1
+        if hasattr(worksheet, '_cells'):
+            for cell in worksheet._cells.values():
+                if cell.has_hyperlink():
+                    rel_id += 1
+        return f"rId{rel_id}"

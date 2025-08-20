@@ -18,6 +18,11 @@ except ImportError:
 @pytest.mark.skipif(not MARKITDOWN_AVAILABLE, reason="MarkItDown not installed")
 def test_sales_report_plugin_comparison(ensure_testdata_dir):
     """Compare MarkItDown output with/without plugin for PRESAMPLE.xlsx"""
+    # Set up dedicated output folder
+    from pathlib import Path
+    output_dir = Path(__file__).parent / "testdata" / "test_markitdown_plugin"
+    output_dir.mkdir(exist_ok=True)
+    
     # Create comprehensive sales workbook
     # wb = create_sales_workbook() test100
     xlsx_file = ensure_testdata_dir / "sales_report_comprehensive.xlsx"
@@ -30,7 +35,7 @@ def test_sales_report_plugin_comparison(ensure_testdata_dir):
     result_basic = md_basic.convert(str(xlsx_file))
     basic_ms = (time.perf_counter() - t0) * 1000.0
     
-    basic_output = ensure_testdata_dir / "test_markitdown_basic.md"
+    basic_output = output_dir / "test_markitdown_basic.md"
     with open(basic_output, "w", encoding="utf-8") as f:
         f.write(result_basic.text_content)
     
@@ -41,12 +46,12 @@ def test_sales_report_plugin_comparison(ensure_testdata_dir):
     result_enhanced = md_enhanced.convert(str(xlsx_file),include_hyperlinks=True)
     enhanced_ms = (time.perf_counter() - t1) * 1000.0
     
-    enhanced_output = ensure_testdata_dir / "test_markitdown_enhanced.md"
+    enhanced_output = output_dir / "test_markitdown_enhanced.md"
     with open(enhanced_output, "w", encoding="utf-8") as f:
         f.write(result_enhanced.text_content)
     
     # Record timing comparison
-    timings_path = ensure_testdata_dir / "test_markitdown_timings.txt"
+    timings_path = output_dir / "test_markitdown_timings.txt"
     with open(timings_path, "w", encoding="utf-8") as f:
         f.write("MarkItDown conversion timings (ms)\n")
         f.write(f"- No plugin: {basic_ms:.2f} ms\n")
@@ -65,6 +70,11 @@ def test_sales_report_plugin_comparison(ensure_testdata_dir):
 @pytest.mark.skipif(not MARKITDOWN_AVAILABLE, reason="MarkItDown not installed")
 def test_markitdown_parameters_variations(ensure_testdata_dir):
     """Test each MarkItDown plugin parameter individually with output files for comparison"""
+    # Set up dedicated output folder
+    from pathlib import Path
+    output_dir = Path(__file__).parent / "testdata" / "test_markitdown_plugin"
+    output_dir.mkdir(exist_ok=True)
+    
     xlsx_file = ensure_testdata_dir / "sales_report_comprehensive.xlsx"
     
     # Test simplified parameters with their variations
@@ -122,7 +132,7 @@ def test_markitdown_parameters_variations(ensure_testdata_dir):
         conversion_time = (time.perf_counter() - t0) * 1000.0
         
         # Save output to individual files for comparison
-        output_file = ensure_testdata_dir / f"markitdown_param_{test_name}.md"
+        output_file = output_dir / f"markitdown_param_{test_name}.md"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(result.text_content)
         
@@ -139,7 +149,7 @@ def test_markitdown_parameters_variations(ensure_testdata_dir):
         assert output_file.stat().st_size > 0
     
     # Generate comparison report
-    report_path = ensure_testdata_dir / "markitdown_parameters_report.md"
+    report_path = output_dir / "markitdown_parameters_report.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("# MarkItDown Plugin Parameters Test Report\n\n")
         f.write("## Test Cases Overview\n\n")

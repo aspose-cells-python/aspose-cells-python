@@ -18,6 +18,12 @@ from aspose.cells.utils.exceptions import FileFormatError
 class TestExcelReader:
     """Test main Excel reader."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_io_modules"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_load_xlsx_file(self, ensure_testdata_dir):
         """Test loading XLSX file."""
         reader = ExcelReader()
@@ -27,7 +33,7 @@ class TestExcelReader:
         test_wb = Workbook()
         ws = test_wb.active
         ws['A1'] = "Test Data"
-        test_file = ensure_testdata_dir / "reader_test.xlsx"
+        test_file = self.output_dir / "reader_test.xlsx"
         test_wb.save(str(test_file), FileFormat.XLSX)
         test_wb.close()
         
@@ -50,6 +56,12 @@ class TestExcelReader:
 class TestExcelWriter:
     """Test main Excel writer."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_io_modules"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_save_xlsx_file(self, ensure_testdata_dir):
         """Test saving XLSX file."""
         writer = ExcelWriter()
@@ -57,7 +69,7 @@ class TestExcelWriter:
         ws = wb.active
         ws['A1'] = "Save Test"
         
-        test_file = ensure_testdata_dir / "writer_test.xlsx"
+        test_file = self.output_dir / "writer_test.xlsx"
         
         # Writer currently only supports XLSX via converters
         # Test will pass if no exception is raised
@@ -168,6 +180,12 @@ class TestConverters:
 class TestIOIntegration:
     """Test IO integration scenarios."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_io_modules"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_round_trip_simulation(self, ensure_testdata_dir):
         """Test simulated round-trip conversion."""
         # Create original workbook
@@ -183,7 +201,7 @@ class TestIOIntegration:
         csv_content = csv_converter.convert_workbook(wb1)
         
         # Save CSV content to file
-        csv_file = ensure_testdata_dir / "roundtrip.csv"
+        csv_file = self.output_dir / "roundtrip.csv"
         with open(csv_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
         

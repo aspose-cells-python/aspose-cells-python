@@ -6,6 +6,7 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union, TYPE_CHECKING
 from .cell import Cell
 from .range import Range
 from .formats import CellValue
+from .drawing import ImageCollection, Image, ImageFormat
 from .utils import (
     coordinate_to_tuple,
     sanitize_sheet_name,
@@ -32,6 +33,7 @@ class Worksheet:
         self._hidden_rows: set = set()
         self._hidden_columns: set = set()
         self._freeze_panes: Optional[str] = None
+        self._images: ImageCollection = ImageCollection(self)
     
     @property
     def name(self) -> str:
@@ -524,4 +526,145 @@ class Worksheet:
                 except (IndexError, ValueError):
                     # Skip invalid column indices
                     continue
+    
+    # Image-related methods and properties
+    
+    @property
+    def images(self) -> ImageCollection:
+        """Get image collection for this worksheet."""
+        return self._images
+    
+    def add_image(self, source, cell_ref: str = "A1", 
+                  offset: Tuple[int, int] = (0, 0),
+                  name: Optional[str] = None,
+                  format: Optional[ImageFormat] = None) -> Image:
+        """
+        Add image to worksheet at specified cell position.
+        
+        Args:
+            source: Image source (file path, bytes, PIL Image, etc.)
+            cell_ref: Cell reference for positioning (default: "A1")
+            offset: Pixel offset from cell (default: (0, 0))
+            name: Optional image name
+            format: Optional format override
+            
+        Returns:
+            Image: Added image object
+            
+        Example:
+            # Add image from file
+            img = ws.add_image('logo.png', 'B2')
+            
+            # Add with offset
+            img = ws.add_image('chart.jpg', 'D5', offset=(10, 5))
+            
+            # Add with custom name
+            img = ws.add_image('data.png', 'A1', name='DataChart')
+        """
+        return self._images.add(source, cell_ref, offset, name, format)
+    
+    def add_image_to_range(self, source, start_cell: str, end_cell: str,
+                          start_offset: Tuple[int, int] = (0, 0),
+                          end_offset: Tuple[int, int] = (0, 0),
+                          name: Optional[str] = None,
+                          format: Optional[ImageFormat] = None) -> Image:
+        """
+        Add image positioned to span a cell range.
+        
+        Args:
+            source: Image source
+            start_cell: Starting cell reference
+            end_cell: Ending cell reference
+            start_offset: Pixel offset from start cell
+            end_offset: Pixel offset from end cell
+            name: Optional image name
+            format: Optional format override
+            
+        Returns:
+            Image: Added image object
+            
+        Example:
+            # Span image across range
+            img = ws.add_image_to_range('banner.png', 'A1', 'E3')
+        """
+        return self._images.add_at_range(
+            source, start_cell, end_cell, 
+            start_offset, end_offset, name, format
+        )
+    
+    def add_image_absolute(self, source, x: int, y: int,
+                          name: Optional[str] = None,
+                          format: Optional[ImageFormat] = None) -> Image:
+        """
+        Add image at absolute position (independent of cells).
+        
+        Args:
+            source: Image source
+            x: X coordinate in pixels
+            y: Y coordinate in pixels
+            name: Optional image name
+            format: Optional format override
+            
+        Returns:
+            Image: Added image object
+            
+        Example:
+            # Add at exact position
+            img = ws.add_image_absolute('watermark.png', 100, 50)
+        """
+        return self._images.add_absolute(source, x, y, name, format)
+    
+    def remove_image(self, target):
+        """
+        Remove image by name, index, or object.
+        
+        Args:
+            target: Image identifier (name, index, or Image object)
+            
+        Example:
+            # Remove by name
+            ws.remove_image('DataChart')
+            
+            # Remove by index
+            ws.remove_image(0)
+            
+            # Remove by object
+            ws.remove_image(img)
+        """
+        self._images.remove(target)
+    
+    def get_image(self, identifier) -> Image:
+        """
+        Get image by name or index.
+        
+        Args:
+            identifier: Image name or index
+            
+        Returns:
+            Image: Found image object
+            
+        Example:
+            img = ws.get_image('DataChart')
+            img = ws.get_image(0)
+        """
+        return self._images.get(identifier)
+    
+    def get_images_at(self, cell_ref: str) -> List[Image]:
+        """
+        Get all images positioned at or near a specific cell.
+        
+        Args:
+            cell_ref: Cell reference (e.g., "A1", "B2")
+            
+        Returns:
+            List[Image]: Images at the specified position
+            
+        Example:
+            images = ws.get_images_at('B2')
+        """
+        return self._images.get_by_position(cell_ref)
+    
+    def clear_images(self):
+        """Remove all images from the worksheet."""
+        self._images.clear()
     

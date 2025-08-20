@@ -1,7 +1,7 @@
 """
 Format Conversion Tests
 Tests for converting Excel files to various output formats.
-All conversion outputs are saved to testdata/output/ directory for inspection.
+All conversion outputs are saved to test_conversions/ directory for inspection.
 """
 
 import pytest
@@ -12,6 +12,12 @@ from aspose.cells import Workbook, FileFormat
 
 class TestConversions:
     """Comprehensive format conversion tests."""
+    
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_conversions"
+        self.output_dir.mkdir(exist_ok=True)
     
     @pytest.fixture
     def sample_workbook(self):
@@ -43,7 +49,7 @@ class TestConversions:
     
     def test_excel_to_csv_conversion(self, sample_workbook, ensure_testdata_dir):
         """Test Excel to CSV conversion."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         # Convert to CSV
@@ -53,7 +59,7 @@ class TestConversions:
         assert "Laptop,999.99,10" in csv_content
         
         # Save to output directory
-        output_file = output_dir / "sample_data.csv"
+        output_file = self.output_dir / "sample_data.csv"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
         
@@ -64,7 +70,7 @@ class TestConversions:
     
     def test_excel_to_json_conversion(self, sample_workbook, ensure_testdata_dir):
         """Test Excel to JSON conversion."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         # Convert to JSON
@@ -77,7 +83,7 @@ class TestConversions:
         assert len(data) > 0
         
         # Save to output directory
-        output_file = output_dir / "sample_data.json"
+        output_file = self.output_dir / "sample_data.json"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(json_content)
         
@@ -87,7 +93,7 @@ class TestConversions:
     
     def test_excel_to_markdown_conversion(self, sample_workbook, ensure_testdata_dir):
         """Test Excel to Markdown conversion."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         # Convert to Markdown
@@ -101,7 +107,7 @@ class TestConversions:
             assert "Laptop" in md_content
             
             # Save to output directory
-            output_file = output_dir / "sample_data.md"
+            output_file = self.output_dir / "sample_data.md"
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(md_content)
             
@@ -117,7 +123,7 @@ class TestConversions:
     
     def test_multi_sheet_conversion(self, ensure_testdata_dir):
         """Test conversion of multi-sheet workbook."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         # Create multi-sheet workbook
@@ -157,7 +163,7 @@ class TestConversions:
         for fmt, filename in formats:
             try:
                 content = wb.exportAs(fmt)
-                output_file = output_dir / filename
+                output_file = self.output_dir / filename
                 
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -174,7 +180,7 @@ class TestConversions:
     
     def test_styled_workbook_conversion(self, ensure_testdata_dir):
         """Test conversion of styled workbook."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         wb = Workbook()
@@ -195,7 +201,7 @@ class TestConversions:
         
         # Test CSV conversion (styles should be ignored)
         csv_content = wb.exportAs(FileFormat.CSV)
-        output_file = output_dir / "styled_workbook.csv"
+        output_file = self.output_dir / "styled_workbook.csv"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
         
@@ -206,7 +212,7 @@ class TestConversions:
     
     def test_formula_conversion(self, ensure_testdata_dir):
         """Test conversion of workbooks with formulas."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         wb = Workbook()
@@ -228,7 +234,7 @@ class TestConversions:
         for fmt, filename in formats_to_test:
             try:
                 content = wb.exportAs(fmt)
-                output_file = output_dir / filename
+                output_file = self.output_dir / filename
                 
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -251,7 +257,7 @@ class TestConversions:
     
     def test_large_workbook_conversion(self, ensure_testdata_dir):
         """Test conversion of larger workbook."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         wb = Workbook()
@@ -269,7 +275,7 @@ class TestConversions:
         
         # Convert to CSV
         csv_content = wb.exportAs(FileFormat.CSV)
-        output_file = output_dir / "large_workbook.csv"
+        output_file = self.output_dir / "large_workbook.csv"
         
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -286,7 +292,7 @@ class TestConversions:
     
     def test_conversion_with_special_characters(self, ensure_testdata_dir):
         """Test conversion with special characters and unicode."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         wb = Workbook()
@@ -313,7 +319,7 @@ class TestConversions:
         for fmt, filename in formats_to_test:
             try:
                 content = wb.exportAs(fmt)
-                output_file = output_dir / filename
+                output_file = self.output_dir / filename
                 
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -338,14 +344,14 @@ class TestConversions:
     
     def test_empty_workbook_conversion(self, ensure_testdata_dir):
         """Test conversion of empty workbook."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         wb = Workbook()
         
         # Convert empty workbook
         csv_content = wb.exportAs(FileFormat.CSV)
-        output_file = output_dir / "empty_workbook.csv"
+        output_file = self.output_dir / "empty_workbook.csv"
         
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(csv_content)
@@ -357,7 +363,7 @@ class TestConversions:
     
     def test_conversion_output_directory_structure(self, ensure_testdata_dir):
         """Test that all conversion outputs are properly organized."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         
         # Verify output directory exists and contains files
         assert output_dir.exists()
@@ -376,7 +382,7 @@ class TestConversions:
     
     def test_batch_conversion(self, ensure_testdata_dir):
         """Test batch conversion of multiple workbooks."""
-        output_dir = ensure_testdata_dir / "output"
+        output_dir = self.output_dir
         output_dir.mkdir(exist_ok=True)
         
         # Create multiple workbooks and convert them
@@ -396,7 +402,7 @@ class TestConversions:
             
             # Convert to CSV
             csv_content = wb.exportAs(FileFormat.CSV)
-            output_file = output_dir / f"{name}.csv"
+            output_file = self.output_dir / f"{name}.csv"
             
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(csv_content)
@@ -406,4 +412,4 @@ class TestConversions:
         
         # Verify all batch files were created
         for name, _ in workbook_configs:
-            assert (output_dir / f"{name}.csv").exists()
+            assert (self.output_dir / f"{name}.csv").exists()

@@ -2,6 +2,7 @@
 
 from typing import List, Optional, TYPE_CHECKING
 from datetime import datetime
+from pathlib import Path
 
 if TYPE_CHECKING:
     from ..workbook import Workbook
@@ -36,7 +37,10 @@ class MarkdownConverter:
             'sheet_name': kwargs.get('sheet_name'),
             'include_metadata': kwargs.get('include_metadata', False),
             'value_mode': kwargs.get('value_mode', 'value'),  # "value" shows calculated results, "formula" shows formulas
-            'include_hyperlinks': kwargs.get('include_hyperlinks', True)
+            'include_hyperlinks': kwargs.get('include_hyperlinks', True),
+            'image_export_mode': kwargs.get('image_export_mode', 'none'),  # 'none', 'base64', 'folder'
+            'image_folder': kwargs.get('image_folder', 'images'),
+            'output_dir': kwargs.get('output_dir', '.')
         }
     
     def _get_sheets(self, workbook: 'Workbook', config: dict) -> List['Worksheet']:
@@ -66,6 +70,12 @@ class MarkdownConverter:
             return ""
         
         parts = [f"## {worksheet.name}", ""]
+        
+        # Add images if present and image export is enabled
+        if hasattr(worksheet, '_images') and len(worksheet._images) > 0:
+            image_content = self._process_images(worksheet, config)
+            if image_content:
+                parts.extend(["### Images", "", image_content, ""])
         
         table = self._create_table(worksheet, config)
         if table:
@@ -305,3 +315,139 @@ class MarkdownConverter:
             score += min(non_empty * 5, 25)
         
         return score
+    
+    def _process_images(self, worksheet: 'Worksheet', config: dict) -> str:
+        """Process images in worksheet based on export mode."""
+        if config['image_export_mode'] == 'none':
+            return ""
+        
+        image_lines = []
+        
+        for i, image in enumerate(worksheet._images):
+            if config['image_export_mode'] == 'base64':
+                # Export as base64 data URL
+                image_md = self._image_to_base64_markdown(image, i)
+            elif config['image_export_mode'] == 'folder':
+                # Export to file and reference
+                image_md = self._image_to_file_markdown(image, i, config)
+            else:
+                continue
+            
+            if image_md:
+                image_lines.append(image_md)
+        
+        return "\n\n".join(image_lines)
+    
+    def _image_to_base64_markdown(self, image, index: int) -> str:
+        """Convert image to base64 markdown."""
+        import base64
+        
+        if not image.data:
+            return f"*Image {index + 1}: {image.name or 'Unnamed'} (No data available)*"
+        
+        # Create base64 data URL
+        format_str = image.format.value if hasattr(image.format, 'value') else str(image.format)
+        base64_data = base64.b64encode(image.data).decode('utf-8')
+        data_url = f"data:image/{format_str};base64,{base64_data}"
+        
+        # Create markdown
+        alt_text = image.description or image.name or f"Image {index + 1}"
+        anchor_info = self._get_anchor_description(image.anchor)
+        
+        md_lines = [
+            f"**{image.name or f'Image {index + 1}'}**",
+            f"- Position: {anchor_info}",
+            f"- Size: {image.width}x{image.height}px" if image.width and image.height else "- Size: Unknown",
+            f"- Format: {format_str.upper()}",
+            f"- Description: {image.description}" if image.description else "",
+            "",
+            f"![{alt_text}]({data_url})"
+        ]
+        
+        return "\n".join(line for line in md_lines if line)
+    
+    def _image_to_file_markdown(self, image, index: int, config: dict) -> str:
+        """Convert image to file reference markdown."""
+        import os
+        
+        if not image.data:
+            return f"*Image {index + 1}: {image.name or 'Unnamed'} (No data available)*"
+        
+        # Create images directory
+        output_dir = Path(config['output_dir'])
+        image_dir = output_dir / config['image_folder']
+        image_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        base_name = image.name or f"image_{index + 1}"
+        format_ext = self._get_file_extension(image.format)
+        filename = self._generate_unique_filename(image_dir, base_name, format_ext)
+        
+        # Save image file
+        image_path = image_dir / filename
+        with open(image_path, 'wb') as f:
+            f.write(image.data)
+        
+        # Create markdown
+        alt_text = image.description or image.name or f"Image {index + 1}"
+        anchor_info = self._get_anchor_description(image.anchor)
+        relative_path = f"{config['image_folder']}/{filename}"
+        
+        md_lines = [
+            f"**{image.name or f'Image {index + 1}'}**",
+            f"- Position: {anchor_info}",
+            f"- Size: {image.width}x{image.height}px" if image.width and image.height else "- Size: Unknown",
+            f"- Format: {image.format.value.upper() if hasattr(image.format, 'value') else str(image.format).upper()}",
+            f"- Description: {image.description}" if image.description else "",
+            f"- File: [{filename}]({relative_path})",
+            "",
+            f"![{alt_text}]({relative_path})"
+        ]
+        
+        return "\n".join(line for line in md_lines if line)
+    
+    def _get_anchor_description(self, anchor) -> str:
+        """Get human-readable anchor description."""
+        from ..drawing.anchor import AnchorType
+        
+        if anchor.type == AnchorType.ONE_CELL:
+            from ..utils.coordinates import tuple_to_coordinate
+            cell_ref = tuple_to_coordinate(anchor.from_position[0] + 1, anchor.from_position[1] + 1)
+            if anchor.from_offset != (0, 0):
+                return f"Cell {cell_ref} + offset {anchor.from_offset}"
+            return f"Cell {cell_ref}"
+        elif anchor.type == AnchorType.TWO_CELL:
+            from ..utils.coordinates import tuple_to_coordinate
+            start_ref = tuple_to_coordinate(anchor.from_position[0] + 1, anchor.from_position[1] + 1)
+            end_ref = tuple_to_coordinate(anchor.to_position[0] + 1, anchor.to_position[1] + 1)
+            return f"Range {start_ref}:{end_ref}"
+        elif anchor.type == AnchorType.ABSOLUTE:
+            return f"Absolute ({anchor.absolute_position[0]}, {anchor.absolute_position[1]})"
+        else:
+            return "Unknown position"
+    
+    def _get_file_extension(self, image_format) -> str:
+        """Get file extension for image format."""
+        format_map = {
+            'png': '.png',
+            'jpeg': '.jpg',
+            'jpg': '.jpg',
+            'gif': '.gif'
+        }
+        format_str = image_format.value if hasattr(image_format, 'value') else str(image_format)
+        return format_map.get(format_str.lower(), '.png')
+    
+    def _generate_unique_filename(self, directory: Path, base_name: str, extension: str) -> str:
+        """Generate unique filename to avoid conflicts."""
+        # Sanitize base name
+        import re
+        safe_name = re.sub(r'[^\w\-_.]', '_', base_name)
+        
+        filename = f"{safe_name}{extension}"
+        counter = 1
+        
+        while (directory / filename).exists():
+            filename = f"{safe_name}_{counter}{extension}"
+            counter += 1
+        
+        return filename

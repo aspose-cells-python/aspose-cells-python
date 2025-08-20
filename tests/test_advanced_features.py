@@ -483,6 +483,12 @@ def create_charts_data_sheet(wb):
 class TestAdvancedFeatures:
     """Test comprehensive Excel features with complex workbook creation."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_advanced_features"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_sales_workbook_creation(self, ensure_testdata_dir):
         """Comprehensive test: Test creating comprehensive sales workbook with all features."""
         wb = create_sales_workbook()
@@ -504,7 +510,7 @@ class TestAdvancedFeatures:
         wb = create_sales_workbook()
         wb.active = wb.worksheets["Sales Summary"]
         
-        xlsx_file = ensure_testdata_dir / "sales_report_comprehensive.xlsx"
+        xlsx_file = self.output_dir / "sales_report_comprehensive.xlsx"
         wb.save(str(xlsx_file))
         
         # Verify file was created and has content
@@ -524,7 +530,7 @@ class TestAdvancedFeatures:
         assert len(json_output) > 0, "JSON output should not be empty"
         
         # Save to file and verify
-        json_file = ensure_testdata_dir / "sales_report_comprehensive.json"
+        json_file = self.output_dir / "sales_report_comprehensive.json"
         with open(json_file, "w", encoding="utf-8") as f:
             f.write(json_output)
         
@@ -545,7 +551,7 @@ class TestAdvancedFeatures:
         assert "|" in md_output, "Markdown should contain table formatting"
         
         # Save to file and verify
-        md_file = ensure_testdata_dir / "sales_report_comprehensive.md"
+        md_file = self.output_dir / "sales_report_comprehensive.md"
         with open(md_file, "w", encoding="utf-8") as f:
             f.write(md_output)
         
@@ -610,12 +616,12 @@ class TestAdvancedFeatures:
             try:
                 if format_type == FileFormat.XLSX:
                     # XLSX uses save method
-                    file_path = ensure_testdata_dir / f"{base_name}.{extension}"
+                    file_path = self.output_dir / f"{base_name}.{extension}"
                     wb.save(str(file_path))
                 else:
                     # Other formats use exportAs method
                     output = wb.exportAs(format_type, all_sheets=True)
-                    file_path = ensure_testdata_dir / f"{base_name}.{extension}"
+                    file_path = self.output_dir / f"{base_name}.{extension}"
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(output)
                 

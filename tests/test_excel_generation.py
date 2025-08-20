@@ -1,7 +1,7 @@
 """
 Excel Generation Tests
 Tests for creating various Excel files with different features and data.
-All generated files are saved to testdata/ directory for inspection and further testing.
+All generated files are saved to test_excel_generation/ directory for inspection and further testing.
 """
 
 import pytest
@@ -11,6 +11,12 @@ from aspose.cells import Workbook, FileFormat
 
 class TestExcelGeneration:
     """Comprehensive Excel file generation tests."""
+    
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_excel_generation"
+        self.output_dir.mkdir(exist_ok=True)
     
     def test_basic_workbook_generation(self, ensure_testdata_dir, sample_data):
         """Generate basic Excel workbook with sample data."""
@@ -38,7 +44,7 @@ class TestExcelGeneration:
             col_letter = chr(ord('A') + col - 1)
             ws.cell(7, col, f"=SUM({col_letter}2:{col_letter}6)")
         
-        output_file = ensure_testdata_dir / "basic_workbook.xlsx"
+        output_file = self.output_dir / "basic_workbook.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -74,7 +80,7 @@ class TestExcelGeneration:
             # Margin % = Profit/Revenue*100
             revenue_ws.cell(row, 5, f"=D{row}/B{row}*100")
         
-        output_file = ensure_testdata_dir / "financial_report.xlsx"
+        output_file = self.output_dir / "financial_report.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -96,7 +102,7 @@ class TestExcelGeneration:
             # Total Comp = Salary + (Salary * Bonus% / 100)
             ws.cell(row, 6, f"=D{row}+(D{row}*E{row}/100)")
         
-        output_file = ensure_testdata_dir / "employee_data.xlsx"
+        output_file = self.output_dir / "employee_data.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -137,7 +143,7 @@ class TestExcelGeneration:
                     else:
                         cell.style.font.color = "green"
         
-        output_file = ensure_testdata_dir / "styled_workbook.xlsx"
+        output_file = self.output_dir / "styled_workbook.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -183,7 +189,7 @@ class TestExcelGeneration:
         summary_ws['A2'] = "Total Orders"
         summary_ws['B2'] = "=COUNTA(Orders!A:A)-1"
         
-        output_file = ensure_testdata_dir / "multi_sheet_workbook.xlsx"
+        output_file = self.output_dir / "multi_sheet_workbook.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -216,7 +222,7 @@ class TestExcelGeneration:
             ws.cell(row, 5, (base_date + timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d"))  # Date
             ws.cell(row, 6, random.choice(statuses))  # Status
         
-        output_file = ensure_testdata_dir / "large_dataset.xlsx"
+        output_file = self.output_dir / "large_dataset.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         
@@ -247,7 +253,7 @@ class TestExcelGeneration:
             ws.cell(row, 6, f"=SUM(B{row}:E{row})")  # Total
             ws.cell(row, 7, f"=F{row}/4")  # Average
         
-        output_file = ensure_testdata_dir / "report_template.xlsx"
+        output_file = self.output_dir / "report_template.xlsx"
         wb.save(str(output_file), FileFormat.XLSX)
         wb.close()
         

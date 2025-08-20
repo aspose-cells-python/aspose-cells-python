@@ -18,7 +18,13 @@ from aspose.cells.io.writer import ExcelWriter
 class TestCsvWriterAdvanced:
     """Advanced tests for CSV writer to improve coverage."""
     
-    def test_write_workbook_functionality(self, ensure_testdata_dir):
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_writers"
+        self.output_dir.mkdir(exist_ok=True)
+    
+    def test_write_workbook_functionality(self):
         """Test write_workbook method."""
         wb = Workbook()
         ws = wb.active
@@ -27,7 +33,7 @@ class TestCsvWriterAdvanced:
         ws['A2'] = "John"
         ws['B2'] = 25
         
-        csv_file = ensure_testdata_dir / "workbook_output.csv"
+        csv_file = self.output_dir / "workbook_output.csv"
         writer = CsvWriter()
         
         # Test write_workbook method
@@ -43,10 +49,10 @@ class TestCsvWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_empty_worksheet(self, ensure_testdata_dir):
+    def test_write_workbook_empty_worksheet(self):
         """Test write_workbook with empty worksheet."""
         wb = Workbook()
-        csv_file = ensure_testdata_dir / "empty_workbook.csv"
+        csv_file = self.output_dir / "empty_workbook.csv"
         writer = CsvWriter()
         
         # Write empty workbook
@@ -60,7 +66,7 @@ class TestCsvWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_specific_sheet(self, ensure_testdata_dir):
+    def test_write_workbook_specific_sheet(self):
         """Test write_workbook with specific sheet name."""
         wb = Workbook()
         ws1 = wb.active
@@ -70,7 +76,7 @@ class TestCsvWriterAdvanced:
         ws2 = wb.create_sheet("Sheet2")
         ws2['A1'] = "Sheet2 Data"
         
-        csv_file = ensure_testdata_dir / "specific_sheet.csv"
+        csv_file = self.output_dir / "specific_sheet.csv"
         writer = CsvWriter()
         
         # Write specific sheet
@@ -121,7 +127,13 @@ class TestCsvWriterAdvanced:
 class TestJsonWriterAdvanced:
     """Advanced tests for JSON writer to improve coverage."""
     
-    def test_write_workbook_functionality(self, ensure_testdata_dir):
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_writers"
+        self.output_dir.mkdir(exist_ok=True)
+    
+    def test_write_workbook_functionality(self):
         """Test write_workbook method."""
         wb = Workbook()
         ws = wb.active
@@ -130,7 +142,7 @@ class TestJsonWriterAdvanced:
         ws['A2'] = "John"
         ws['B2'] = 25
         
-        json_file = ensure_testdata_dir / "workbook_output.json"
+        json_file = self.output_dir / "workbook_output.json"
         writer = JsonWriter()
         
         # Test write_workbook method
@@ -148,7 +160,7 @@ class TestJsonWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_all_sheets(self, ensure_testdata_dir):
+    def test_write_workbook_all_sheets(self):
         """Test write_workbook with all_sheets option."""
         wb = Workbook()
         ws1 = wb.active
@@ -158,7 +170,7 @@ class TestJsonWriterAdvanced:
         ws2 = wb.create_sheet("Sheet2")
         ws2['A1'] = "Sheet2 Data"
         
-        json_file = ensure_testdata_dir / "all_sheets.json"
+        json_file = self.output_dir / "all_sheets.json"
         writer = JsonWriter()
         
         # Write all sheets
@@ -173,14 +185,14 @@ class TestJsonWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_include_empty_cells(self, ensure_testdata_dir):
+    def test_write_workbook_include_empty_cells(self):
         """Test write_workbook with include_empty_cells option."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "Data"
         ws['C1'] = "More"  # Skip B1
         
-        json_file = ensure_testdata_dir / "empty_cells.json"
+        json_file = self.output_dir / "empty_cells.json"
         writer = JsonWriter()
         
         # Write with empty cells included
@@ -228,7 +240,13 @@ class TestJsonWriterAdvanced:
 class TestMarkdownWriterAdvanced:
     """Advanced tests for Markdown writer to improve coverage."""
     
-    def test_write_workbook_functionality(self, ensure_testdata_dir):
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_writers"
+        self.output_dir.mkdir(exist_ok=True)
+    
+    def test_write_workbook_functionality(self):
         """Test write_workbook method."""
         wb = Workbook()
         ws = wb.active
@@ -237,7 +255,7 @@ class TestMarkdownWriterAdvanced:
         ws['A2'] = "John"
         ws['B2'] = 25
         
-        md_file = ensure_testdata_dir / "workbook_output.md"
+        md_file = self.output_dir / "workbook_output.md"
         writer = MarkdownWriter()
         
         # Test write_workbook method
@@ -254,7 +272,7 @@ class TestMarkdownWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_all_sheets(self, ensure_testdata_dir):
+    def test_write_workbook_all_sheets(self):
         """Test write_workbook with all_sheets option."""
         wb = Workbook()
         ws1 = wb.active
@@ -264,7 +282,7 @@ class TestMarkdownWriterAdvanced:
         ws2 = wb.create_sheet("Sheet2")
         ws2['A1'] = "Sheet2 Data"
         
-        md_file = ensure_testdata_dir / "all_sheets.md"
+        md_file = self.output_dir / "all_sheets.md"
         writer = MarkdownWriter()
         
         # Write all sheets
@@ -280,14 +298,14 @@ class TestMarkdownWriterAdvanced:
         
         wb.close()
     
-    def test_write_workbook_options(self, ensure_testdata_dir):
+    def test_write_workbook_options(self):
         """Test write_workbook with various options."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "Very Long Header Name That Exceeds Normal Width"
         ws['A2'] = "Short"
         
-        md_file = ensure_testdata_dir / "with_options.md"
+        md_file = self.output_dir / "with_options.md"
         writer = MarkdownWriter()
         
         # Write with custom options
@@ -384,13 +402,19 @@ class TestMarkdownWriterAdvanced:
 class TestExcelWriterAdvanced:
     """Advanced tests for Excel writer to improve coverage."""
     
-    def test_save_workbook_formats(self, ensure_testdata_dir):
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_writers"
+        self.output_dir.mkdir(exist_ok=True)
+    
+    def test_save_workbook_formats(self):
         """Test save_workbook with different formats."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "Test Data"
         
-        xlsx_file = ensure_testdata_dir / "excel_writer_test.xlsx"
+        xlsx_file = self.output_dir / "excel_writer_test.xlsx"
         writer = ExcelWriter()
         
         # Test saving in XLSX format
@@ -403,14 +427,14 @@ class TestExcelWriterAdvanced:
         
         wb.close()
     
-    def test_save_workbook_csv_fallback(self, ensure_testdata_dir):
+    def test_save_workbook_csv_fallback(self):
         """Test save_workbook CSV fallback functionality."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "CSV Test"
         ws['A2'] = "Data"
         
-        csv_file = ensure_testdata_dir / "excel_writer_csv.csv"
+        csv_file = self.output_dir / "excel_writer_csv.csv"
         writer = ExcelWriter()
         
         # Test CSV format saving
@@ -431,14 +455,14 @@ class TestExcelWriterAdvanced:
         
         wb.close()
     
-    def test_save_workbook_json_fallback(self, ensure_testdata_dir):
+    def test_save_workbook_json_fallback(self):
         """Test save_workbook JSON fallback functionality."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "JSON Test"
         ws['A2'] = "Data"
         
-        json_file = ensure_testdata_dir / "excel_writer_json.json"
+        json_file = self.output_dir / "excel_writer_json.json"
         writer = ExcelWriter()
         
         # Test JSON format saving
@@ -459,7 +483,7 @@ class TestExcelWriterAdvanced:
         
         wb.close()
     
-    def test_save_workbook_with_different_formats(self, ensure_testdata_dir):
+    def test_save_workbook_with_different_formats(self):
         """Test ExcelWriter save_workbook method with supported formats."""
         wb = Workbook()
         ws = wb.active
@@ -478,7 +502,7 @@ class TestExcelWriterAdvanced:
         
         for fmt, filename in formats_to_test:
             try:
-                file_path = ensure_testdata_dir / filename
+                file_path = self.output_dir / filename
                 writer.save_workbook(wb, str(file_path), fmt)
                 # If save succeeds, verify file exists
                 if file_path.exists():

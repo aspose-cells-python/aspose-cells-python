@@ -23,6 +23,12 @@ from aspose.cells.utils.exceptions import (
 class TestWorkbookComprehensive:
     """Comprehensive tests for Workbook class."""
     
+    def setup_method(self):
+        """Set up test environment with dedicated output folder."""
+        from pathlib import Path
+        self.output_dir = Path(__file__).parent / "testdata" / "test_comprehensive_core"
+        self.output_dir.mkdir(exist_ok=True)
+    
     def test_workbook_initialization(self):
         """Test workbook initialization and basic properties."""
         wb = Workbook()
@@ -139,7 +145,7 @@ class TestWorkbookComprehensive:
         ws['A2'] = 42
         
         # Test XLSX format
-        xlsx_file = ensure_testdata_dir / "test_save.xlsx"
+        xlsx_file = self.output_dir / "test_save.xlsx"
         wb.save(str(xlsx_file), FileFormat.XLSX)
         assert xlsx_file.exists()
         
