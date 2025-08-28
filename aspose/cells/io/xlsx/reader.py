@@ -84,7 +84,7 @@ class XlsxReader:
                 sheet_info = {
                     'name': sheet.get('name', 'Sheet1'),
                     'sheet_id': sheet.get('sheetId', '1'),
-                    'r_id': sheet.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                    'r_id': sheet.get(f'{{{XlsxConstants.NAMESPACES["r"]}}}id')
                 }
                 sheets.append(sheet_info)
             
@@ -99,7 +99,7 @@ class XlsxReader:
             root = ET.fromstring(content)
             
             relationships = {}
-            for rel in root.findall('rel:Relationship', {'rel': 'http://schemas.openxmlformats.org/package/2006/relationships'}):
+            for rel in root.findall('rel:Relationship', {'rel': XlsxConstants.NAMESPACES['pkg']}):
                 rel_id = rel.get('Id')
                 target = rel.get('Target')
                 if rel_id and target:
@@ -231,7 +231,7 @@ class XlsxReader:
             
             # Build relationships map
             # The relationships XML uses the package relationships namespace as default
-            for rel in rels_root.findall('.//{http://schemas.openxmlformats.org/package/2006/relationships}Relationship'):
+            for rel in rels_root.findall(f'.//{{{XlsxConstants.NAMESPACES["pkg"]}}}Relationship'):
                 rel_id = rel.get('Id')
                 target = rel.get('Target')
                 if rel_id and target:
@@ -244,7 +244,7 @@ class XlsxReader:
         for hyperlink in hyperlinks_elem.findall('main:hyperlink', self.namespaces):
             cell_ref = hyperlink.get('ref')
             # Get the relationship ID using the proper namespace
-            rel_id = hyperlink.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+            rel_id = hyperlink.get(f'{{{XlsxConstants.NAMESPACES["r"]}}}id')
             
             if cell_ref and rel_id and rel_id in relationships:
                 try:

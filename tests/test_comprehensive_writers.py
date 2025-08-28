@@ -12,7 +12,7 @@ from aspose.cells import Workbook
 from aspose.cells.io.csv.writer import CsvWriter
 from aspose.cells.io.json.writer import JsonWriter
 from aspose.cells.io.md.writer import MarkdownWriter
-from aspose.cells.io.writer import ExcelWriter
+from aspose.cells.io.xlsx.writer import XlsxWriter
 
 
 class TestCsvWriterAdvanced:
@@ -415,15 +415,11 @@ class TestExcelWriterAdvanced:
         ws['A1'] = "Test Data"
         
         xlsx_file = self.output_dir / "excel_writer_test.xlsx"
-        writer = ExcelWriter()
+        writer = XlsxWriter()
         
         # Test saving in XLSX format
-        try:
-            from aspose.cells import FileFormat
-            writer.save_workbook(wb, str(xlsx_file), FileFormat.XLSX)
-        except Exception as e:
-            # Expected - writer may not support direct saving yet
-            assert "not implemented" in str(e).lower() or "unsupported" in str(e).lower()
+        writer.save_workbook(wb, str(xlsx_file))
+        assert xlsx_file.exists()
         
         wb.close()
     
@@ -435,23 +431,18 @@ class TestExcelWriterAdvanced:
         ws['A2'] = "Data"
         
         csv_file = self.output_dir / "excel_writer_csv.csv"
-        writer = ExcelWriter()
+        writer = XlsxWriter()
         
-        # Test CSV format saving
-        try:
-            from aspose.cells import FileFormat
-            writer.save_workbook(wb, str(csv_file), FileFormat.CSV)
-            
-            # If successful, verify content
-            if csv_file.exists():
-                with open(csv_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                assert "CSV Test" in content
-                assert "Data" in content
-                
-        except Exception:
-            # Writer may not support CSV format yet
-            pass
+        # XlsxWriter doesn't support CSV format, but we can save as XLSX
+        xlsx_file = self.output_dir / "excel_writer_csv_test_as_xlsx.xlsx"
+        writer.save_workbook(wb, str(xlsx_file))
+        
+        # Verify the XLSX file was created correctly
+        assert xlsx_file.exists()
+        wb_loaded = Workbook(str(xlsx_file))
+        assert wb_loaded.active['A1'].value == "CSV Test"
+        assert wb_loaded.active['A2'].value == "Data"
+        wb_loaded.close()
         
         wb.close()
     
@@ -463,33 +454,28 @@ class TestExcelWriterAdvanced:
         ws['A2'] = "Data"
         
         json_file = self.output_dir / "excel_writer_json.json"
-        writer = ExcelWriter()
+        writer = XlsxWriter()
         
-        # Test JSON format saving
-        try:
-            from aspose.cells import FileFormat
-            writer.save_workbook(wb, str(json_file), FileFormat.JSON)
-            
-            # If successful, verify content
-            if json_file.exists():
-                import json
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    result = json.load(f)
-                assert isinstance(result, (list, dict))
-                
-        except Exception:
-            # Writer may not support JSON format yet
-            pass
+        # XlsxWriter doesn't support JSON format, but we can save as XLSX
+        xlsx_file = self.output_dir / "excel_writer_json_test_as_xlsx.xlsx"
+        writer.save_workbook(wb, str(xlsx_file))
+        
+        # Verify the XLSX file was created correctly
+        assert xlsx_file.exists()
+        wb_loaded = Workbook(str(xlsx_file))
+        assert wb_loaded.active['A1'].value == "JSON Test"
+        assert wb_loaded.active['A2'].value == "Data"
+        wb_loaded.close()
         
         wb.close()
     
     def test_save_workbook_with_different_formats(self):
-        """Test ExcelWriter save_workbook method with supported formats."""
+        """Test XlsxWriter save_workbook method with supported formats."""
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "Test Data"
         
-        writer = ExcelWriter()
+        writer = XlsxWriter()
         
         from aspose.cells import FileFormat
         
@@ -500,15 +486,17 @@ class TestExcelWriterAdvanced:
             (FileFormat.MARKDOWN, "excel_writer_test.md")
         ]
         
-        for fmt, filename in formats_to_test:
-            try:
-                file_path = self.output_dir / filename
-                writer.save_workbook(wb, str(file_path), fmt)
-                # If save succeeds, verify file exists
-                if file_path.exists():
-                    assert file_path.stat().st_size > 0
-            except Exception as e:
-                # Writer may not support all formats yet, that's ok
-                assert "not implemented" in str(e).lower() or "unsupported" in str(e).lower() or "cannot save" in str(e).lower()
+        # XlsxWriter only supports XLSX format, test just that
+        xlsx_file = self.output_dir / "excel_writer_test.xlsx"
+        writer.save_workbook(wb, str(xlsx_file))
+        
+        # Verify file was created and has content
+        assert xlsx_file.exists()
+        assert xlsx_file.stat().st_size > 0
+        
+        # Verify content by loading back
+        wb_loaded = Workbook(str(xlsx_file))
+        assert wb_loaded.active['A1'].value == "Test Data"
+        wb_loaded.close()
         
         wb.close()

@@ -13,6 +13,8 @@ from .utils import (
     FileFormatError,
     ExportError
 )
+from .io.factory import FormatHandlerFactory
+from .io.models import WorkbookData
 
 
 
@@ -180,24 +182,28 @@ class Workbook:
         return worksheet
     
     def _load_from_file(self, filename: Union[str, Path]):
-        """Load workbook from Excel file."""
+        """Load workbook from file using unified format factory."""
         self._filename = Path(filename)
         
         if not self._filename.exists():
             raise FileFormatError(f"File not found: {filename}")
         
-        if self._filename.suffix.lower() not in ['.xlsx', '.xlsm', '.xltx', '.xltm']:
-            raise FileFormatError(f"Unsupported file format: {self._filename.suffix}")
-        
-        # Import reader here to avoid circular imports
-        from .io.reader import ExcelReader
-        
-        reader = ExcelReader()
-        reader.load_workbook(self, str(filename))
+        # Try unified format handler first
+        handler = FormatHandlerFactory.get_handler(str(filename))
+        if handler:
+            handler.load_workbook(self, str(filename))
+        else:
+            # Fall back to legacy reader for unsupported formats
+            if self._filename.suffix.lower() not in ['.xlsx', '.xlsm', '.xltx', '.xltm']:
+                raise FileFormatError(f"Unsupported file format: {self._filename.suffix}")
+            
+            from .io.xlsx.reader import XlsxReader
+            reader = XlsxReader()
+            reader.load_workbook(self, str(filename))
     
     def save(self, filename: Optional[Union[str, Path]] = None, 
              format: Optional[Union[str, FileFormat]] = None, **kwargs):
-        """Save workbook to file with specified format."""
+        """Save workbook to file with specified format using unified factory."""
         if filename is None:
             if self._filename is None:
                 raise FileFormatError("No filename specified and no previous filename available")
@@ -205,20 +211,39 @@ class Workbook:
         else:
             filename = Path(filename)
         
-        if format is None:
-            format = FileFormat.from_extension(filename)
-        elif isinstance(format, str):
-            # Convert string to FileFormat enum
-            try:
-                format = FileFormat(format)
-            except ValueError:
-                raise FileFormatError(f"Unsupported format: {format}")
+        # If format is specified, modify filename extension
+        if format is not None:
+            if isinstance(format, str):
+                # Convert string to FileFormat enum if possible
+                try:
+                    format_enum = FileFormat(format)
+                    filename = filename.with_suffix(format_enum.extension)
+                except ValueError:
+                    # For unsupported format strings, try to use them directly
+                    if not format.startswith('.'):
+                        format = '.' + format
+                    filename = filename.with_suffix(format)
+            else:
+                filename = filename.with_suffix(format.extension)
         
-        # Import writer here to avoid circular imports
-        from .io.writer import ExcelWriter
+        # Try unified format handler first
+        handler = FormatHandlerFactory.get_handler(str(filename))
+        if handler:
+            handler.save_workbook(self, str(filename), **kwargs)
+        else:
+            # Fall back to legacy writer
+            if format is None:
+                format = FileFormat.from_extension(filename)
+            elif isinstance(format, str):
+                try:
+                    format = FileFormat(format)
+                except ValueError:
+                    raise FileFormatError(f"Unsupported format: {format}")
+            
+            from .io.xlsx.writer import XlsxWriter
+            writer = XlsxWriter()
+            writer.save_workbook(self, str(filename), **kwargs)
         
-        writer = ExcelWriter()
-        writer.save_workbook(self, str(filename), format.value, **kwargs)
         self._filename = Path(filename)
     
     def exportAs(self, format: Union[str, FileFormat], **kwargs) -> str:
@@ -284,6 +309,19 @@ class Workbook:
         new_worksheet._freeze_panes = source._freeze_panes
         
         return new_worksheet
+    
+    def convert_to(self, target_format: str, output_path: str, **options) -> None:
+        """Convert workbook to different format using unified data model."""
+        # Convert workbook to unified data model
+        data = WorkbookData.from_workbook(self)
+        
+        # Get target format handler
+        handler = FormatHandlerFactory.get_handler(output_path)
+        if not handler:
+            raise FileFormatError(f"Unsupported target format: {Path(output_path).suffix}")
+        
+        # Write using unified data model
+        handler.write_from_data(data, output_path, **options)
     
     def close(self):
         """Close workbook and release resources."""

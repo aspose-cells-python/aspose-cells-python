@@ -328,3 +328,7 @@ class MarkdownWriter:
     def _format_cell_value(self, value: CellValue, max_width: int) -> str:
         """Legacy method for backward compatibility."""
         return self._format_cell_for_markdown(value, max_width)
+    
+    def save_workbook(self, workbook: 'Workbook', file_path: str, **options) -> None:
+        """Save workbook to Markdown file - unified interface method."""
+        self.write_workbook(file_path, workbook, **options)

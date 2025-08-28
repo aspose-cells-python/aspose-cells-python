@@ -134,3 +134,28 @@ class MarkdownReader:
         
         # Return as string
         return value
+    
+    def load_workbook(self, workbook: 'Workbook', file_path: str, **options) -> None:
+        """Load Markdown file into workbook object."""
+        data = self.read(file_path, **options)
+        
+        # Clear existing worksheets
+        workbook._worksheets.clear()
+        workbook._active_sheet = None
+        
+        if isinstance(data, dict):
+            # Multi-sheet format (multiple headers/sections)
+            for sheet_name, table_data in data.items():
+                worksheet = workbook.create_sheet(sheet_name)
+                self._populate_worksheet(worksheet, table_data)
+        else:
+            # Single table format
+            worksheet = workbook.create_sheet("Sheet1")
+            self._populate_worksheet(worksheet, data)
+    
+    def _populate_worksheet(self, worksheet, rows: List[List[CellValue]]) -> None:
+        """Populate worksheet with table data."""
+        for row_idx, row_data in enumerate(rows, 1):
+            for col_idx, cell_value in enumerate(row_data, 1):
+                if cell_value is not None:
+                    worksheet.cell(row_idx, col_idx, cell_value)

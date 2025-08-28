@@ -7,16 +7,16 @@ import pytest
 import json
 from unittest.mock import mock_open, patch
 from aspose.cells import Workbook, FileFormat
-from aspose.cells.io.reader import ExcelReader
-from aspose.cells.io.writer import ExcelWriter
+from aspose.cells.io.xlsx.reader import XlsxReader
+from aspose.cells.io.xlsx.writer import XlsxWriter
 from aspose.cells.converters.csv_converter import CsvConverter
 from aspose.cells.converters.json_converter import JsonConverter
 from aspose.cells.converters.markdown_converter import MarkdownConverter
 from aspose.cells.utils.exceptions import FileFormatError
 
 
-class TestExcelReader:
-    """Test main Excel reader."""
+class TestXlsxReader:
+    """Test XLSX reader."""
     
     def setup_method(self):
         """Set up test environment with dedicated output folder."""
@@ -26,7 +26,7 @@ class TestExcelReader:
     
     def test_load_xlsx_file(self, ensure_testdata_dir):
         """Test loading XLSX file."""
-        reader = ExcelReader()
+        reader = XlsxReader()
         wb = Workbook()
         
         # Create test file
@@ -44,7 +44,7 @@ class TestExcelReader:
     
     def test_unsupported_format(self):
         """Test loading unsupported file format."""
-        reader = ExcelReader()
+        reader = XlsxReader()
         wb = Workbook()
         
         with pytest.raises(FileFormatError):
@@ -64,7 +64,7 @@ class TestExcelWriter:
     
     def test_save_xlsx_file(self, ensure_testdata_dir):
         """Test saving XLSX file."""
-        writer = ExcelWriter()
+        writer = XlsxWriter()
         wb = Workbook()
         ws = wb.active
         ws['A1'] = "Save Test"
@@ -73,11 +73,9 @@ class TestExcelWriter:
         
         # Writer currently only supports XLSX via converters
         # Test will pass if no exception is raised
-        try:
-            writer.save_workbook(wb, str(test_file), FileFormat.XLSX)
-        except FileFormatError:
-            # Expected - writer doesn't support direct XLSX save yet
-            pass
+        # XlsxWriter supports XLSX format directly
+        writer.save_workbook(wb, str(test_file))
+        assert test_file.exists()
         
         wb.close()
 

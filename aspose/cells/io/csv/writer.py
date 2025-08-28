@@ -92,3 +92,7 @@ class CsvWriter:
             return str(value)
         else:
             return str(value)
+    
+    def save_workbook(self, workbook: 'Workbook', file_path: str, **options) -> None:
+        """Save workbook to CSV file - unified interface method."""
+        self.write_workbook(file_path, workbook, **options)

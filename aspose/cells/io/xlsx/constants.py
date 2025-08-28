@@ -118,6 +118,46 @@ class XlsxConstants:
         'window_width': "14980",
         'window_height': "8580"
     }
+    
+    # Drawing and Image Constants
+    DRAWING_NAMESPACES = {
+        'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+        'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+        'a16': 'http://schemas.microsoft.com/office/drawing/2014/main',
+        'a14': 'http://schemas.microsoft.com/office/drawing/2010/main'
+    }
+    
+    # Image-related constants
+    IMAGE_DEFAULTS = {
+        'width': 100,
+        'height': 100,
+        'name_prefix': 'Image',
+        'emu_per_pixel': 9525  # English Metric Units per pixel
+    }
+    
+    # Extension URIs used in images
+    IMAGE_EXTENSIONS = {
+        'creation_id': '{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}',
+        'local_dpi': '{28A0092B-C50C-407E-A947-70E740481C1C}'
+    }
+    
+    # Image MIME types
+    IMAGE_CONTENT_TYPES = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif'
+    }
+    
+    # XML Attributes and values
+    XML_ATTRIBUTES = {
+        'edit_as': 'oneCell',
+        'no_change_aspect': '1',
+        'cstate': 'print',
+        'local_dpi_val': '0',
+        'transform_xy': '0',
+        'preset_geom': 'rect'
+    }
 
 
 class XlsxTemplates:

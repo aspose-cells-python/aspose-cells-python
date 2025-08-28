@@ -69,3 +69,20 @@ class CsvReader:
         
         # Return as string
         return value
+    
+    def load_workbook(self, workbook: 'Workbook', file_path: str, **options) -> None:
+        """Load CSV file into workbook object."""
+        data = self.read(file_path, **options)
+        
+        # Clear existing worksheets
+        workbook._worksheets.clear()
+        workbook._active_sheet = None
+        
+        # Create single worksheet
+        worksheet = workbook.create_sheet("Sheet1")
+        
+        # Populate worksheet with CSV data
+        for row_idx, row_data in enumerate(data, 1):
+            for col_idx, cell_value in enumerate(row_data, 1):
+                if cell_value is not None:
+                    worksheet.cell(row_idx, col_idx, cell_value)

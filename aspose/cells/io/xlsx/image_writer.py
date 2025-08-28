@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ...drawing import Image, ImageFormat, ImageCollection, Anchor, AnchorType
 from ...utils import tuple_to_coordinate
+from .constants import XlsxConstants
 
 
 class ImageWriter:
@@ -44,7 +45,7 @@ class ImageWriter:
         # Store relationship info
         self.image_relationships.append({
             'id': rel_id,
-            'type': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            'type': f"{XlsxConstants.REL_TYPES['worksheet'].rsplit('/', 1)[0]}/image",
             'target': image_path
         })
         
@@ -57,8 +58,8 @@ class ImageWriter:
         
         # Create drawing XML structure - match OpenCells/Excel standard exactly
         drawing = ET.Element('xdr:wsDr')
-        drawing.set('xmlns:xdr', 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing')
-        drawing.set('xmlns:a', 'http://schemas.openxmlformats.org/drawingml/2006/main')
+        drawing.set('xmlns:xdr', XlsxConstants.DRAWING_NAMESPACES['xdr'])
+        drawing.set('xmlns:a', XlsxConstants.DRAWING_NAMESPACES['a'])
         # Note: r namespace declared locally in each blip element (OpenCells standard)
         
         for image in images:
@@ -94,14 +95,14 @@ class ImageWriter:
         from_row, from_col = image.anchor.from_position
         
         ET.SubElement(from_elem, 'xdr:col').text = str(from_col)
-        ET.SubElement(from_elem, 'xdr:colOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[0] * 9525)  # Convert to EMU
+        ET.SubElement(from_elem, 'xdr:colOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[0] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         ET.SubElement(from_elem, 'xdr:row').text = str(from_row)
-        ET.SubElement(from_elem, 'xdr:rowOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[1] * 9525)  # Convert to EMU
+        ET.SubElement(from_elem, 'xdr:rowOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[1] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         
         # Extent (size) - EMU units (English Metric Units)
         ext_elem = ET.SubElement(anchor_elem, 'xdr:ext')
-        width_emu = int((image.width or 100) * 9525)  # Convert pixels to EMU
-        height_emu = int((image.height or 100) * 9525)  # Convert pixels to EMU
+        width_emu = int((image.width or XlsxConstants.IMAGE_DEFAULTS['width']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
+        height_emu = int((image.height or XlsxConstants.IMAGE_DEFAULTS['height']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         ET.SubElement(ext_elem, 'xdr:cx').text = str(width_emu)
         ET.SubElement(ext_elem, 'xdr:cy').text = str(height_emu)
         
@@ -118,16 +119,16 @@ class ImageWriter:
         """Create two-cell anchor element."""
         anchor_elem = ET.Element('xdr:twoCellAnchor')
         # Add editAs attribute like Excel standard
-        anchor_elem.set('editAs', 'oneCell')
+        anchor_elem.set('editAs', XlsxConstants.XML_ATTRIBUTES['edit_as'])
         
         # From position
         from_elem = ET.SubElement(anchor_elem, 'xdr:from')
         from_row, from_col = image.anchor.from_position
         
         ET.SubElement(from_elem, 'xdr:col').text = str(from_col)
-        ET.SubElement(from_elem, 'xdr:colOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[0] * 9525)
+        ET.SubElement(from_elem, 'xdr:colOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[0] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         ET.SubElement(from_elem, 'xdr:row').text = str(from_row)
-        ET.SubElement(from_elem, 'xdr:rowOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[1] * 9525)
+        ET.SubElement(from_elem, 'xdr:rowOff').text = str(getattr(image.anchor, 'from_offset', (0, 0))[1] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         
         # To position
         to_elem = ET.SubElement(anchor_elem, 'xdr:to')
@@ -141,9 +142,9 @@ class ImageWriter:
             to_col_off, to_row_off = (0, 0)
         
         ET.SubElement(to_elem, 'xdr:col').text = str(to_col)
-        ET.SubElement(to_elem, 'xdr:colOff').text = str(int(to_col_off * 9525))
+        ET.SubElement(to_elem, 'xdr:colOff').text = str(int(to_col_off * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel']))
         ET.SubElement(to_elem, 'xdr:row').text = str(to_row)
-        ET.SubElement(to_elem, 'xdr:rowOff').text = str(int(to_row_off * 9525))
+        ET.SubElement(to_elem, 'xdr:rowOff').text = str(int(to_row_off * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel']))
         
         # Picture
         pic_elem = self._create_picture_element(image, rel_id)
@@ -161,13 +162,13 @@ class ImageWriter:
         # Position
         pos_elem = ET.SubElement(anchor_elem, 'xdr:pos')
         abs_pos = getattr(image.anchor, 'absolute_position', (0, 0)) or (0, 0)
-        ET.SubElement(pos_elem, 'xdr:x').text = str(int(abs_pos[0] * 9525))  # Convert to EMU
-        ET.SubElement(pos_elem, 'xdr:y').text = str(int(abs_pos[1] * 9525))  # Convert to EMU
+        ET.SubElement(pos_elem, 'xdr:x').text = str(int(abs_pos[0] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel']))
+        ET.SubElement(pos_elem, 'xdr:y').text = str(int(abs_pos[1] * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel']))
         
         # Extent (size)
         ext_elem = ET.SubElement(anchor_elem, 'xdr:ext')
-        width_emu = int((image.width or 100) * 9525)
-        height_emu = int((image.height or 100) * 9525)
+        width_emu = int((image.width or XlsxConstants.IMAGE_DEFAULTS['width']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
+        height_emu = int((image.height or XlsxConstants.IMAGE_DEFAULTS['height']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         ET.SubElement(ext_elem, 'xdr:cx').text = str(width_emu)
         ET.SubElement(ext_elem, 'xdr:cy').text = str(height_emu)
         
@@ -190,16 +191,16 @@ class ImageWriter:
         # Non-visual drawing properties
         c_nv_pr = ET.SubElement(nv_pic_pr, 'xdr:cNvPr')
         c_nv_pr.set('id', str(self.image_counter))
-        c_nv_pr.set('name', image.name or f'图片 {self.image_counter}')
+        c_nv_pr.set('name', image.name or f'{XlsxConstants.IMAGE_DEFAULTS["name_prefix"]} {self.image_counter}')
         
         # CRITICAL: Add extension list with creation ID (required by Excel)
         ext_lst = ET.SubElement(c_nv_pr, 'a:extLst')
         ext = ET.SubElement(ext_lst, 'a:ext')
-        ext.set('uri', '{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}')
+        ext.set('uri', XlsxConstants.IMAGE_EXTENSIONS['creation_id'])
         
         # Add creation ID
         creation_id = ET.SubElement(ext, 'a16:creationId')
-        creation_id.set('xmlns:a16', 'http://schemas.microsoft.com/office/drawing/2014/main')
+        creation_id.set('xmlns:a16', XlsxConstants.DRAWING_NAMESPACES['a16'])
         # Generate a unique GUID for this image
         import uuid
         creation_id.set('id', '{' + str(uuid.uuid4()).upper() + '}')
@@ -208,25 +209,25 @@ class ImageWriter:
         c_nv_pic_pr = ET.SubElement(nv_pic_pr, 'xdr:cNvPicPr')
         # Add picture locks for image protection - minimal attributes for Excel compatibility
         pic_locks = ET.SubElement(c_nv_pic_pr, 'a:picLocks')
-        pic_locks.set('noChangeAspect', '1')  # Maintain aspect ratio
+        pic_locks.set('noChangeAspect', XlsxConstants.XML_ATTRIBUTES['no_change_aspect'])
         
         # Blip fill
         blip_fill = ET.SubElement(pic_elem, 'xdr:blipFill')
         blip = ET.SubElement(blip_fill, 'a:blip')
         # CRITICAL: Use r:embed with local r namespace declaration like OpenCells
-        blip.set('xmlns:r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')
+        blip.set('xmlns:r', XlsxConstants.NAMESPACES['r'])
         blip.set('r:embed', rel_id)  # Reference to image relationship
-        blip.set('cstate', 'print')  # Image state for printing
+        blip.set('cstate', XlsxConstants.XML_ATTRIBUTES['cstate'])
         
         # CRITICAL: Add extension list with useLocalDpi (required by Excel)
         blip_ext_lst = ET.SubElement(blip, 'a:extLst')
         blip_ext = ET.SubElement(blip_ext_lst, 'a:ext')
-        blip_ext.set('uri', '{28A0092B-C50C-407E-A947-70E740481C1C}')
+        blip_ext.set('uri', XlsxConstants.IMAGE_EXTENSIONS['local_dpi'])
         
         # Add useLocalDpi
         use_local_dpi = ET.SubElement(blip_ext, 'a14:useLocalDpi')
-        use_local_dpi.set('xmlns:a14', 'http://schemas.microsoft.com/office/drawing/2010/main')
-        use_local_dpi.set('val', '0')
+        use_local_dpi.set('xmlns:a14', XlsxConstants.DRAWING_NAMESPACES['a14'])
+        use_local_dpi.set('val', XlsxConstants.XML_ATTRIBUTES['local_dpi_val'])
         
         # Stretch
         stretch = ET.SubElement(blip_fill, 'a:stretch')
@@ -238,17 +239,17 @@ class ImageWriter:
         # Transform
         xfrm = ET.SubElement(sp_pr, 'a:xfrm')
         off = ET.SubElement(xfrm, 'a:off')
-        off.set('x', '0')
-        off.set('y', '0')
+        off.set('x', XlsxConstants.XML_ATTRIBUTES['transform_xy'])
+        off.set('y', XlsxConstants.XML_ATTRIBUTES['transform_xy'])
         ext = ET.SubElement(xfrm, 'a:ext')
-        width_emu = int((image.width or 100) * 9525)
-        height_emu = int((image.height or 100) * 9525)
+        width_emu = int((image.width or XlsxConstants.IMAGE_DEFAULTS['width']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
+        height_emu = int((image.height or XlsxConstants.IMAGE_DEFAULTS['height']) * XlsxConstants.IMAGE_DEFAULTS['emu_per_pixel'])
         ext.set('cx', str(width_emu))
         ext.set('cy', str(height_emu))
         
         # Preset geometry - rectangle shape for image
         prst_geom = ET.SubElement(sp_pr, 'a:prstGeom')
-        prst_geom.set('prst', 'rect')
+        prst_geom.set('prst', XlsxConstants.XML_ATTRIBUTES['preset_geom'])
         av_lst = ET.SubElement(prst_geom, 'a:avLst')
         
         # Remove line element for images - can cause Excel validation issues
@@ -261,7 +262,7 @@ class ImageWriter:
             return ""
         
         relationships = ET.Element('Relationships')
-        relationships.set('xmlns', 'http://schemas.openxmlformats.org/package/2006/relationships')
+        relationships.set('xmlns', XlsxConstants.NAMESPACES['pkg'])
         
         for rel in self.image_relationships:
             relationship = ET.SubElement(relationships, 'Relationship')
@@ -284,11 +285,11 @@ class ImageWriter:
         for path in self.image_files.keys():
             filename = Path(path).name
             if filename.endswith('.png'):
-                entries.append(('png', 'image/png'))
+                entries.append(('png', XlsxConstants.IMAGE_CONTENT_TYPES['png']))
             elif filename.endswith(('.jpg', '.jpeg')):
-                entries.append(('jpeg', 'image/jpeg'))
+                entries.append(('jpeg', XlsxConstants.IMAGE_CONTENT_TYPES['jpeg']))
             elif filename.endswith('.gif'):
-                entries.append(('gif', 'image/gif'))
+                entries.append(('gif', XlsxConstants.IMAGE_CONTENT_TYPES['gif']))
         
         # Remove duplicates
         return list(set(entries))

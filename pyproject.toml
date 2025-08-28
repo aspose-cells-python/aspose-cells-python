@@ -29,6 +29,7 @@ classifiers = [
 
 [project.optional-dependencies]
 markitdown = ["markitdown>=0.1.0"]
+docling = ["docling"]
 
 [project.entry-points."markitdown.plugin"]
 aspose-cells-python = "aspose.cells.plugins.markitdown_plugin"

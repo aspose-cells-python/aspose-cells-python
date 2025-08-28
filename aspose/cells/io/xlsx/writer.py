@@ -299,14 +299,7 @@ class XlsxWriter:
             
             # Add content types for all found image extensions
             for ext in image_extensions:
-                if ext == 'jpeg':
-                    content_type = 'image/jpeg'
-                elif ext == 'png':
-                    content_type = 'image/png'
-                elif ext == 'gif':
-                    content_type = 'image/gif'
-                else:
-                    content_type = f'image/{ext}'
+                content_type = XlsxConstants.IMAGE_CONTENT_TYPES.get(ext, f'image/{ext}')
                 
                 default = ET.SubElement(root, "Default")
                 default.set("Extension", ext)
@@ -351,7 +344,7 @@ class XlsxWriter:
     def _write_rels(self, zip_file: zipfile.ZipFile):
         """Write _rels/.rels."""
         root = ET.Element("Relationships")
-        root.set("xmlns", "http://schemas.openxmlformats.org/package/2006/relationships")
+        root.set("xmlns", XlsxConstants.NAMESPACES['pkg'])
         
         for rel_id, rel_type, target in XlsxTemplates.get_rels_data():
             rel = ET.SubElement(root, "Relationship")
@@ -430,7 +423,7 @@ class XlsxWriter:
             return
             
         root = ET.Element("Relationships")
-        root.set("xmlns", "http://schemas.openxmlformats.org/package/2006/relationships")
+        root.set("xmlns", XlsxConstants.NAMESPACES['pkg'])
         
         rel_id_counter = 1
         
@@ -447,7 +440,7 @@ class XlsxWriter:
         if drawing_id:
             relationship = ET.SubElement(root, "Relationship")
             relationship.set("Id", drawing_id)
-            relationship.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing")
+            relationship.set("Type", f"{XlsxConstants.REL_TYPES['worksheet'].rsplit('/', 1)[0]}/drawing")
             relationship.set("Target", f"../drawings/drawing{sheet_id}.xml")
         
         self._write_xml_to_zip(zip_file, f"xl/worksheets/_rels/sheet{sheet_id}.xml.rels", root)

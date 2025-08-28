@@ -1,18 +1,27 @@
 """
-I/O module for Excel file reading and writing with protocol compliance.
+I/O module for Excel file reading and writing with unified format support.
 """
 
-from .reader import ExcelReader
-from .writer import ExcelWriter
+# Format-specific readers and writers
 from .csv import CsvReader, CsvWriter
 from .json import JsonReader, JsonWriter
 from .md import MarkdownReader, MarkdownWriter
 from .xlsx import XlsxReader, XlsxWriter
 
+# Unified architecture components
+from .models import WorkbookData
+from .interfaces import IFormatHandler
+from .factory import FormatHandlerFactory
+
 __all__ = [
-    "ExcelReader", "ExcelWriter",
+    # Format-specific components
     "CsvReader", "CsvWriter",
     "JsonReader", "JsonWriter", 
     "MarkdownReader", "MarkdownWriter",
-    "XlsxReader", "XlsxWriter"
+    "XlsxReader", "XlsxWriter",
+    
+    # Unified architecture components
+    "WorkbookData",
+    "IFormatHandler", 
+    "FormatHandlerFactory"
 ]
