@@ -15,7 +15,7 @@ Aspose.Cells for Python is a high-performance Excel processing library that prov
 
 ```bash
 # Core library
-git clone https://github.com/aspose-cells/aspose-cells-python-org.git
+git clone https://github.com/aspose-cells/aspose-cells-python.git
 cd aspose-cells-python-org
 pip install -e .
 
