@@ -1,9 +1,11 @@
-# Aspose.Cells for Python
+# Aspose.Cells for Python (FOSS Edition)
 
 Modern Pythonic Excel processing library with advanced plugin ecosystem for enhanced document conversion.
 
+[![PyPI version](https://badge.fury.io/py/aspose-cells-foss.svg)](https://badge.fury.io/py/aspose-cells-foss)
 [![License: Split](https://img.shields.io/badge/License-Split-blue.svg)](https://aspose.org/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Downloads](https://pepy.tech/badge/aspose-cells-foss)](https://pepy.tech/project/aspose-cells-foss)
 
 ## Overview
 
@@ -11,12 +13,30 @@ Aspose.Cells for Python is a high-performance Excel processing library that prov
 
 ## Installation
 
-**Note: Package not yet published to PyPI. Install from source:**
+### From PyPI (Recommended)
 
 ```bash
 # Core library
+pip install aspose-cells-foss
+
+# With MarkItDown plugin support
+pip install aspose-cells-foss[markitdown]
+
+# With Docling backend support
+pip install aspose-cells-foss[docling]
+
+# With all optional dependencies
+pip install aspose-cells-foss[markitdown,docling]
+```
+
+### From Source
+
+```bash
+# Clone repository
 git clone https://github.com/aspose-cells/aspose-cells-python.git
-cd aspose-cells-python-org
+cd aspose-cells-python
+
+# Install in development mode
 pip install -e .
 
 # With plugin support
