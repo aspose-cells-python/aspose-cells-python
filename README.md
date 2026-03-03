@@ -1,4 +1,4 @@
-# Aspose.Cells for Python
+# Aspose.Cells FOSS for Python
 
 A lightweight Python library for creating, reading, and modifying Excel files (.xlsx format) without requiring Microsoft Excel.
 
