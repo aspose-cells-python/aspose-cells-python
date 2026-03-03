@@ -9,6 +9,7 @@ ECMA-376 Compliant cell value import.
 """
 
 import xml.etree.ElementTree as ET
+import re
 from .cell_value_handler import CellValueHandler
 from .comment_xml import CommentXMLReader
 from .xml_autofilter_loader import AutoFilterXMLLoader
@@ -16,6 +17,9 @@ from .xml_conditional_format_loader import ConditionalFormatXMLLoader
 from .xml_properties_loader import WorkbookPropertiesXMLLoader, WorksheetPropertiesXMLLoader
 from .xml_hyperlink_handler import HyperlinkXMLLoader
 from .xml_datavalidation_loader import DataValidationXmlLoader
+from .xml_chart_loader import ChartXmlLoader
+from .xml_table_loader import TableXmlLoader
+from .xml_sparkline_loader import SparklineXmlLoader
 
 
 class XMLLoader:
@@ -50,6 +54,9 @@ class XMLLoader:
 
         # Initialize hyperlink loader
         self._hyperlink_loader = HyperlinkXMLLoader(self.ns)
+        self._chart_loader = ChartXmlLoader(self.ns)
+        self._table_loader = TableXmlLoader()
+        self._sparkline_loader = SparklineXmlLoader()
 
         # Initialize data validation loader
         self._dv_loader = DataValidationXmlLoader(self.ns['main'])
@@ -57,6 +64,30 @@ class XMLLoader:
         # Initialize properties loaders
         self._wb_props_loader = WorkbookPropertiesXMLLoader(self.ns)
         self._ws_props_loader = WorksheetPropertiesXMLLoader(self.ns)
+        self._content_type_overrides = {}
+        self._content_type_defaults = {}
+
+    @staticmethod
+    def _extract_root_extra_attrs(xml_text, tag_name):
+        match = re.search(rf'<{tag_name}\b([^>]*)>', xml_text, re.S)
+        if not match:
+            return ''
+        attrs = match.group(1)
+        attrs = re.sub(r'\sxmlns="[^"]*"', '', attrs)
+        attrs = re.sub(r'\sxmlns:r="[^"]*"', '', attrs)
+        return attrs.strip()
+
+    @staticmethod
+    def _extract_raw_element(xml_text, tag_name):
+        patterns = [
+            rf'(<{tag_name}\b[^>]*/>)',
+            rf'(<{tag_name}\b[^>]*>.*?</{tag_name}>)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, xml_text, re.S)
+            if match:
+                return match.group(1)
+        return None
 
     def load_workbook(self, zipf):
         """
@@ -67,7 +98,12 @@ class XMLLoader:
         """
         # Load workbook.xml to get worksheet information
         workbook_xml_content = zipf.read('xl/workbook.xml')
+        workbook_xml_text = workbook_xml_content.decode('utf-8', errors='replace')
         workbook_root = ET.fromstring(workbook_xml_content)
+        self.workbook._source_workbook_root_extra_attrs = self._extract_root_extra_attrs(workbook_xml_text, 'workbook')
+        self.workbook._source_workbook_alt_content_xml = self._extract_raw_element(workbook_xml_text, 'mc:AlternateContent')
+        self.workbook._source_workbook_revision_ptr_xml = self._extract_raw_element(workbook_xml_text, 'xr:revisionPtr')
+        self.workbook._source_workbook_extlst_xml = self._extract_raw_element(workbook_xml_text, 'extLst')
 
         # Load workbook properties
         self._load_workbook_properties(workbook_root)
@@ -75,8 +111,20 @@ class XMLLoader:
         # Load document properties (docProps/core.xml and docProps/app.xml)
         self._load_document_properties(zipf)
 
+        # Load package content type overrides (used by chart/theme roundtrip)
+        self._load_content_type_overrides(zipf)
+
+        # Load workbook theme part if present
+        self._load_theme(zipf)
+
         # Load worksheet information
         self._load_worksheet_info(workbook_root)
+
+        # Apply worksheet print areas from workbook defined names.
+        self._apply_print_areas_from_defined_names()
+
+        # Load extra workbook rels (external links, etc.) for round-trip preservation
+        self._load_extra_workbook_rels(zipf)
 
         # Load shared strings
         self._load_shared_strings(zipf)
@@ -86,6 +134,48 @@ class XMLLoader:
 
         # Load worksheet data
         self._load_worksheets_data(zipf)
+
+    def _load_content_type_overrides(self, zipf):
+        """
+        Loads [Content_Types].xml entries:
+            Defaults: extension -> content-type
+            Overrides: /part/name.xml -> content-type
+        """
+        self._content_type_defaults = {}
+        self.workbook._content_type_defaults = {}
+        self._content_type_overrides = {}
+        try:
+            content_types_xml = zipf.read('[Content_Types].xml')
+            root = ET.fromstring(content_types_xml)
+            ns = {'ct': 'http://schemas.openxmlformats.org/package/2006/content-types'}
+            for default in root.findall('ct:Default', namespaces=ns):
+                extension = default.get('Extension')
+                content_type = default.get('ContentType')
+                if extension and content_type:
+                    self._content_type_defaults[extension.lower()] = content_type
+                    self.workbook._content_type_defaults[extension.lower()] = content_type
+            for ov in root.findall('ct:Override', namespaces=ns):
+                part_name = ov.get('PartName')
+                content_type = ov.get('ContentType')
+                if part_name and content_type:
+                    self._content_type_overrides[part_name] = content_type
+        except KeyError:
+            self._content_type_defaults = {}
+            self.workbook._content_type_defaults = {}
+            self._content_type_overrides = {}
+        except ET.ParseError:
+            self._content_type_defaults = {}
+            self.workbook._content_type_defaults = {}
+            self._content_type_overrides = {}
+
+    def _load_theme(self, zipf):
+        """
+        Loads xl/theme/theme1.xml bytes for roundtrip preservation.
+        """
+        try:
+            self.workbook._theme_xml = zipf.read('xl/theme/theme1.xml')
+        except KeyError:
+            self.workbook._theme_xml = None
     
     def _load_workbook_properties(self, workbook_root):
         """
@@ -169,6 +259,7 @@ class XMLLoader:
         for sheet in sheets:
             sheet_name = sheet.get('name')
             worksheet = Worksheet(sheet_name)
+            worksheet._workbook = self.workbook
 
             # Load visibility state
             state = sheet.get('state')
@@ -178,6 +269,51 @@ class XMLLoader:
                 worksheet._visible = 'veryHidden'
 
             self.workbook._worksheets.append(worksheet)
+
+    def _apply_print_areas_from_defined_names(self):
+        """
+        Applies worksheet print area values from workbook defined names.
+        """
+        defined_names = getattr(self.workbook.properties, 'defined_names', None)
+        if defined_names is None:
+            return
+
+        for dn in defined_names:
+            if dn.name != '_xlnm.Print_Area':
+                continue
+            sheet_id = dn.local_sheet_id
+            if sheet_id is None or sheet_id < 0 or sheet_id >= len(self.workbook._worksheets):
+                continue
+            worksheet = self.workbook._worksheets[sheet_id]
+            worksheet._print_area = self._extract_print_area(dn.refers_to, worksheet.name)
+
+    def _extract_print_area(self, refers_to, sheet_name):
+        """
+        Extracts plain A1 print area string from defined-name formula text.
+
+        Example input:
+            "'Sheet1'!$A$1:$D$20,'Sheet1'!$F$1:$F$20"
+        Output:
+            "A1:D20,F1:F20"
+        """
+        if not refers_to:
+            return None
+
+        parts = []
+        for token in str(refers_to).split(','):
+            part = token.strip()
+            if not part:
+                continue
+            if '!' in part:
+                _, addr = part.split('!', 1)
+            else:
+                addr = part
+            addr = addr.replace('$', '').strip().upper()
+            parts.append(addr)
+
+        if not parts:
+            return None
+        return ','.join(parts)
     
     def _load_shared_strings(self, zipf):
         """
@@ -208,7 +344,10 @@ class XMLLoader:
         """
         try:
             styles_content = zipf.read('xl/styles.xml')
+            self.workbook._source_styles_xml = styles_content
             styles_root = ET.fromstring(styles_content)
+            cell_xfs_elem = styles_root.find('.//main:cellXfs', namespaces=self.ns)
+            self.workbook._source_cell_xfs_count = int(cell_xfs_elem.get('count', '0')) if cell_xfs_elem is not None else 0
             self._load_styles_xml(styles_root)
             # Load differential formatting (dxf) for conditional formatting
             self._load_dxf_styles(styles_root)
@@ -219,6 +358,93 @@ class XMLLoader:
             saver.register_default_styles()
             self.workbook._dxf_styles = []
     
+    def _load_extra_workbook_rels(self, zipf):
+        """
+        Loads non-native workbook rels (e.g. externalLinks) for round-trip preservation.
+        Stores them on workbook._source_extra_workbook_rels.
+        """
+        rels_path = 'xl/_rels/workbook.xml.rels'
+        try:
+            rels_content = zipf.read(rels_path)
+        except KeyError:
+            return
+
+        rels_root = ET.fromstring(rels_content)
+        ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+
+        # Rel types that the saver writes natively — skip these.
+        NATIVE_TYPES = {
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+        }
+
+        extra_rels = []
+        for rel in rels_root.findall('r:Relationship', ns):
+            rel_type = rel.get('Type', '')
+            if rel_type == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain':
+                target = rel.get('Target', '')
+                rel_id = rel.get('Id', '')
+                part_path = target[1:] if target.startswith('/') else f'xl/{target}'
+                try:
+                    self.workbook._source_calc_chain_bytes = zipf.read(part_path)
+                    self.workbook._source_calc_chain_rel = {
+                        'rel_id': rel_id,
+                        'target': target,
+                        'part_path': part_path,
+                        'content_type': self._content_type_overrides.get(f'/{part_path}')
+                            or 'application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml',
+                    }
+                except KeyError:
+                    pass
+                continue
+            if rel_type in NATIVE_TYPES:
+                continue
+            target = rel.get('Target', '')
+            rel_id = rel.get('Id', '')
+            target_mode = rel.get('TargetMode', '')
+            if target_mode == 'External':
+                continue
+
+            # Resolve path relative to xl/
+            if target.startswith('/'):
+                part_path = target[1:]
+            else:
+                part_path = 'xl/' + target
+
+            part_bytes = None
+            try:
+                part_bytes = zipf.read(part_path)
+            except KeyError:
+                pass
+
+            # Read the part's own rels file (e.g. externalLink1.xml.rels)
+            dir_part, file_part = part_path.rsplit('/', 1)
+            part_rels_path = f'{dir_part}/_rels/{file_part}.rels'
+            part_rels_bytes = None
+            try:
+                part_rels_bytes = zipf.read(part_rels_path)
+            except KeyError:
+                pass
+
+            # Look up content type from preloaded overrides
+            content_type = self._content_type_overrides.get(f'/{part_path}')
+
+            extra_rels.append({
+                'rel_id': rel_id,
+                'rel_type': rel_type,
+                'target': target,
+                'part_path': part_path,
+                'part_bytes': part_bytes,
+                'part_rels_path': part_rels_path,
+                'part_rels_bytes': part_rels_bytes,
+                'content_type': content_type,
+            })
+
+        if extra_rels:
+            self.workbook._source_extra_workbook_rels = extra_rels
+
     def _load_worksheets_data(self, zipf):
         """
         Loads data for all worksheets.
@@ -226,25 +452,141 @@ class XMLLoader:
         Args:
             zipf: A ZipFile object containing the workbook data.
         """
+        # Pre-pass: load extra sheet rels for ALL worksheets first.
+        # This lets us know which comments/vmlDrawing files are "claimed" by each
+        # sheet via its rels (files may use non-standard numbering, e.g. comments1.xml
+        # for sheet2), so we can avoid loading another sheet's file by accident.
+        worksheets_and_roots = []
         for i, worksheet in enumerate(self.workbook._worksheets):
             try:
                 worksheet_content = zipf.read(f'xl/worksheets/sheet{i+1}.xml')
+                worksheet_text = worksheet_content.decode('utf-8', errors='replace')
                 worksheet_root = ET.fromstring(worksheet_content)
+                worksheet._source_root_extra_attrs = self._extract_root_extra_attrs(worksheet_text, 'worksheet')
+                worksheet._source_sheet_pr_xml = self._extract_raw_element(worksheet_text, 'sheetPr')
+                worksheet._source_phonetic_pr_xml = self._extract_raw_element(worksheet_text, 'phoneticPr')
+                dimension_xml = self._extract_raw_element(worksheet_text, 'dimension')
+                worksheet._source_dimension_ref = None
+                if dimension_xml:
+                    m = re.search(r'ref="([^"]+)"', dimension_xml)
+                    if m:
+                        worksheet._source_dimension_ref = m.group(1)
+                self._load_extra_sheet_rels(zipf, worksheet, i+1)
+                worksheets_and_roots.append((i, worksheet, worksheet_root))
+            except KeyError:
+                worksheets_and_roots.append((i, worksheet, None))
+
+        # Build map: comments part_path -> the worksheet that owns it via its rels.
+        # Any comments file in this map must only be loaded by its owner sheet.
+        claimed_comments_paths = {}
+        for _, worksheet, _ in worksheets_and_roots:
+            for r in getattr(worksheet, '_source_extra_sheet_rels', []):
+                if 'comments' in r.get('rel_type', '').lower():
+                    claimed_comments_paths[r['part_path']] = worksheet
+
+        # Main pass: load cell data, comments, hyperlinks, charts.
+        for i, worksheet, worksheet_root in worksheets_and_roots:
+            if worksheet_root is None:
+                continue
+            try:
                 self._load_worksheet_data(worksheet, worksheet_root)
 
-                # Load comments for this worksheet
-                self._comment_reader.load_comments(zipf, worksheet, i+1)
+                # Load comments for this worksheet.
+                # Skip if the default-numbered comments file (xl/comments{N}.xml) is
+                # claimed by a DIFFERENT sheet via that sheet's rels -- loading it here
+                # would assign another sheet's comments to the wrong worksheet.
+                default_comments_path = f'xl/comments{i+1}.xml'
+                comments_owner = claimed_comments_paths.get(default_comments_path)
+                if comments_owner is None or comments_owner is worksheet:
+                    self._comment_reader.load_comments(zipf, worksheet, i+1)
 
                 # Load hyperlinks for this worksheet
                 self._hyperlink_loader.load_hyperlinks(worksheet, worksheet_root, zipf, i+1)
+
+                # Load charts for this worksheet
+                self._chart_loader.load_charts(
+                    worksheet, worksheet_root, zipf, i+1,
+                    content_type_overrides=self._content_type_overrides,
+                    content_type_defaults=self._content_type_defaults,
+                )
+
+                # Load tables for this worksheet
+                self._table_loader.load_tables(worksheet, worksheet_root, zipf, i+1)
+
+                # Load sparklines for this worksheet (inline in extLst — no zipf needed)
+                self._sparkline_loader.load_sparklines(worksheet, worksheet_root)
             except KeyError:
                 # Worksheet file not found, skip
                 pass
     
+    def _load_extra_sheet_rels(self, zipf, worksheet, sheet_num):
+        """
+        Reads non-drawing, non-hyperlink rels from the sheet's rels file and stores
+        them on worksheet._source_extra_sheet_rels for round-trip preservation.
+        This handles cases where vmlDrawing/comments files use non-standard numbering.
+        """
+        rels_path = f'xl/worksheets/_rels/sheet{sheet_num}.xml.rels'
+        try:
+            rels_content = zipf.read(rels_path)
+        except KeyError:
+            return
+
+        rels_root = ET.fromstring(rels_content)
+        ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+
+        # Only preserve vmlDrawing and comments rels for round-trip.
+        # Other rel types (drawing, hyperlink, printerSettings, etc.) are either
+        # handled elsewhere or intentionally not preserved here to avoid rel-ID conflicts.
+        PRESERVED_TYPES = {
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments',
+        }
+
+        extra_rels = []
+        for rel in rels_root.findall('r:Relationship', ns):
+            rel_type = rel.get('Type', '')
+            target = rel.get('Target', '')
+            target_mode = rel.get('TargetMode', '')
+            rel_id = rel.get('Id', '')
+
+            # Only collect vmlDrawing and comments rels
+            if rel_type not in PRESERVED_TYPES:
+                continue
+            # Skip external targets
+            if target_mode == 'External':
+                continue
+
+            # Resolve part path relative to xl/worksheets/
+            # Target is like "../vmlDrawing1.vml" → "xl/vmlDrawing1.vml"
+            if target.startswith('../'):
+                part_path = 'xl/' + target[3:]
+            elif target.startswith('/'):
+                part_path = target[1:]
+            else:
+                part_path = 'xl/worksheets/' + target
+
+            part_bytes = None
+            try:
+                part_bytes = zipf.read(part_path)
+            except KeyError:
+                pass
+
+            extra_rels.append({
+                'rel_id': rel_id,
+                'rel_type': rel_type,
+                'target': target,
+                'target_mode': target_mode,
+                'part_path': part_path,
+                'part_bytes': part_bytes,
+            })
+
+        if extra_rels:
+            worksheet._source_extra_sheet_rels = extra_rels
+
     def _load_worksheet_data(self, worksheet, worksheet_root):
         """
         Loads cell data from worksheet XML according to ECMA-376 specification.
-        
+
         Args:
             worksheet (Worksheet): The worksheet object to load data into.
             worksheet_root: The XML root element of the worksheet.
@@ -281,6 +623,9 @@ class XMLLoader:
 
         # Load data validations (ECMA-376 Section 18.3.1.30, 18.3.1.31)
         self._load_data_validations(worksheet, worksheet_root)
+
+        # Load merged cells (ECMA-376 Section 18.3.1.55)
+        self._load_merged_cells(worksheet, worksheet_root)
 
         # Find shared string table reference
         shared_strings = self.workbook._shared_strings
@@ -319,12 +664,31 @@ class XMLLoader:
                 from .cell import Cell
                 cell = Cell(value, formula)
                 
-                # Apply style if present
-                if style_idx > 0:
-                    self._apply_cell_style(cell, style_idx)
+                # Apply style (including style 0/default) if available in style table.
+                self._apply_cell_style(cell, style_idx)
                 
                 # Set cell value
                 worksheet.cells[cell_ref] = cell
+
+    def _load_merged_cells(self, worksheet, worksheet_root):
+        """
+        Loads merged cell ranges from worksheet XML.
+
+        Args:
+            worksheet (Worksheet): The worksheet object to load merged ranges into.
+            worksheet_root: The XML root element of the worksheet.
+        """
+        merge_cells_elem = worksheet_root.find('main:mergeCells', namespaces=self.ns)
+        if merge_cells_elem is None:
+            worksheet._merged_cells = []
+            return
+
+        merged = []
+        for merge_cell_elem in merge_cells_elem.findall('main:mergeCell', namespaces=self.ns):
+            merge_ref = merge_cell_elem.get('ref')
+            if merge_ref:
+                merged.append(str(merge_ref).upper())
+        worksheet._merged_cells = merged
 
     def _load_column_dimensions(self, worksheet, worksheet_root):
         """
@@ -336,6 +700,8 @@ class XMLLoader:
 
         if not hasattr(worksheet, '_column_widths'):
             worksheet._column_widths = {}
+        if not hasattr(worksheet, '_column_styles'):
+            worksheet._column_styles = {}
         if not hasattr(worksheet, '_hidden_columns'):
             worksheet._hidden_columns = set()
 
@@ -343,12 +709,14 @@ class XMLLoader:
             min_val = col_elem.get('min')
             max_val = col_elem.get('max')
             width_val = col_elem.get('width')
+            style_val = col_elem.get('style')
             hidden_val = col_elem.get('hidden')
             if min_val is None or max_val is None:
                 raise ValueError("Invalid column definition: missing min or max")
             try:
-                min_col = int(min_val)
-                max_col = int(max_val)
+                # Handle float values by converting to float first, then to int
+                min_col = int(float(min_val))
+                max_col = int(float(max_val))
             except ValueError as exc:
                 raise ValueError("Invalid column definition values") from exc
             if min_col < 1 or max_col < min_col:
@@ -365,6 +733,11 @@ class XMLLoader:
             for col_idx in range(min_col, max_col + 1):
                 if width is not None:
                     worksheet._column_widths[col_idx] = width
+                if style_val is not None:
+                    try:
+                        worksheet._column_styles[col_idx] = int(style_val)
+                    except ValueError:
+                        pass
                 if hidden_val in ('1', 'true', 'True'):
                     worksheet._hidden_columns.add(col_idx)
 
@@ -423,6 +796,9 @@ class XMLLoader:
         if cell_style_key is None:
             return
 
+        # Preserve original style index for lossless roundtrip.
+        cell._source_style_idx = style_idx
+
         font_key, fill_key, border_key, num_fmt_key, alignment_key, protection_key = cell_style_key
 
         # Apply font
@@ -442,6 +818,12 @@ class XMLLoader:
             cell.style.fill.pattern_type = fill_data['pattern_type']
             cell.style.fill.foreground_color = fill_data['fg_color']
             cell.style.fill.background_color = fill_data['bg_color']
+            cell.style.fill._fg_color_type = fill_data.get('fg_color_type', 'rgb')
+            cell.style.fill._fg_color_value = fill_data.get('fg_color_value', fill_data.get('fg_color'))
+            cell.style.fill._fg_color_tint = fill_data.get('fg_color_tint')
+            cell.style.fill._bg_color_type = fill_data.get('bg_color_type', 'rgb')
+            cell.style.fill._bg_color_value = fill_data.get('bg_color_value', fill_data.get('bg_color'))
+            cell.style.fill._bg_color_tint = fill_data.get('bg_color_tint')
 
         # Apply border
         if border_key in self.workbook._border_styles:
@@ -500,7 +882,7 @@ class XMLLoader:
             11: '0.00E+00',
             12: '# ?/?',
             13: '# ??/??',
-            14: 'mm-dd-yy',
+            14: 'm/d/yyyy',
             15: 'd-mmm-yy',
             16: 'd-mmm',
             17: 'mmm-yy',
@@ -549,26 +931,65 @@ class XMLLoader:
         """
         fonts = styles_root.findall('.//main:font', namespaces=self.ns)
         for i, font_elem in enumerate(fonts):
-            if i == 0:
-                continue  # Skip default font
             sz_elem = font_elem.find('main:sz', namespaces=self.ns)
             color_elem = font_elem.find('main:color', namespaces=self.ns)
             name_elem = font_elem.find('main:name', namespaces=self.ns)
+            family_elem = font_elem.find('main:family', namespaces=self.ns)
+            charset_elem = font_elem.find('main:charset', namespaces=self.ns)
+            scheme_elem = font_elem.find('main:scheme', namespaces=self.ns)
             b_elem = font_elem.find('main:b', namespaces=self.ns)
             i_elem = font_elem.find('main:i', namespaces=self.ns)
             u_elem = font_elem.find('main:u', namespaces=self.ns)
             strike_elem = font_elem.find('main:strike', namespaces=self.ns)
+
+            color_type = None
+            color_value = None
+            color_tint = None
+            if color_elem is not None:
+                if color_elem.get('rgb') is not None:
+                    color_type = 'rgb'
+                    color_value = color_elem.get('rgb')
+                elif color_elem.get('theme') is not None:
+                    color_type = 'theme'
+                    color_value = color_elem.get('theme')
+                elif color_elem.get('indexed') is not None:
+                    color_type = 'indexed'
+                    color_value = color_elem.get('indexed')
+                elif color_elem.get('auto') is not None:
+                    color_type = 'auto'
+                    color_value = color_elem.get('auto')
+                if color_elem.get('tint') is not None:
+                    color_tint = color_elem.get('tint')
             
             font_data = {
                 'name': name_elem.get('val') if name_elem is not None else 'Calibri',
-                'size': int(sz_elem.get('val', 11)) if sz_elem is not None else 11,
-                'color': color_elem.get('rgb', color_elem.get('theme', 'FF000000')) if color_elem is not None else 'FF000000',
+                'size': float(sz_elem.get('val', 11)) if sz_elem is not None else 11,
+                'color': color_value if color_type == 'rgb' else 'FF000000',
+                'color_type': color_type,
+                'color_value': color_value,
+                'color_tint': color_tint,
+                'family': family_elem.get('val') if family_elem is not None else None,
+                'charset': charset_elem.get('val') if charset_elem is not None else None,
+                'scheme': scheme_elem.get('val') if scheme_elem is not None else None,
                 'bold': b_elem is not None,
                 'italic': i_elem is not None,
                 'underline': u_elem is not None,
                 'strikethrough': strike_elem is not None
             }
             self.workbook._font_styles[i] = font_data
+
+            # Keep workbook default style in sync with loaded default font (fontId=0).
+            if i == 0 and self.workbook._styles:
+                default_font = self.workbook._styles[0].font
+                default_font.name = font_data['name']
+                default_font.size = font_data['size']
+                default_font.bold = font_data['bold']
+                default_font.italic = font_data['italic']
+                default_font.underline = font_data['underline']
+                default_font.strikethrough = font_data['strikethrough']
+                # Only apply explicit RGB color to style font.
+                if font_data['color_type'] == 'rgb' and font_data['color_value']:
+                    default_font.color = font_data['color_value']
     
     def _load_fills(self, styles_root):
         """
@@ -579,18 +1000,40 @@ class XMLLoader:
         """
         fills = styles_root.findall('.//main:fill', namespaces=self.ns)
         for i, fill_elem in enumerate(fills):
-            if i < 2:
-                continue  # Skip default fills (none and gray125)
             pattern_elem = fill_elem.find('main:patternFill', namespaces=self.ns)
             fg_color_elem = pattern_elem.find('main:fgColor', namespaces=self.ns) if pattern_elem is not None else None
             bg_color_elem = pattern_elem.find('main:bgColor', namespaces=self.ns) if pattern_elem is not None else None
-            
+            fg_type, fg_value, fg_tint = self._extract_color_attrs(fg_color_elem)
+            bg_type, bg_value, bg_tint = self._extract_color_attrs(bg_color_elem)
+            fg_rgb = fg_value if fg_type == 'rgb' else 'FFFFFFFF'
+            bg_rgb = bg_value if bg_type == 'rgb' else 'FFFFFFFF'
             fill_data = {
                 'pattern_type': pattern_elem.get('patternType', 'none') if pattern_elem is not None else 'none',
-                'fg_color': fg_color_elem.get('rgb', 'FFFFFFFF') if fg_color_elem is not None else 'FFFFFFFF',
-                'bg_color': bg_color_elem.get('rgb', 'FFFFFFFF') if bg_color_elem is not None else 'FFFFFFFF'
+                'fg_color': fg_rgb,
+                'bg_color': bg_rgb,
+                'fg_color_type': fg_type,
+                'fg_color_value': fg_value,
+                'fg_color_tint': fg_tint,
+                'bg_color_type': bg_type,
+                'bg_color_value': bg_value,
+                'bg_color_tint': bg_tint,
             }
             self.workbook._fill_styles[i] = fill_data
+
+    def _extract_color_attrs(self, color_elem):
+        if color_elem is None:
+            return 'rgb', 'FFFFFFFF', None
+        tint_val = color_elem.get('tint')
+        tint = float(tint_val) if tint_val is not None else None
+        if color_elem.get('rgb') is not None:
+            return 'rgb', color_elem.get('rgb'), tint
+        if color_elem.get('theme') is not None:
+            return 'theme', color_elem.get('theme'), tint
+        if color_elem.get('indexed') is not None:
+            return 'indexed', color_elem.get('indexed'), tint
+        if color_elem.get('auto') is not None:
+            return 'auto', color_elem.get('auto'), tint
+        return 'rgb', 'FFFFFFFF', tint
     
     def _load_borders(self, styles_root):
         """
@@ -662,10 +1105,28 @@ class XMLLoader:
         if not hasattr(self.workbook, '_cell_xf_by_index'):
             self.workbook._cell_xf_by_index = {}
 
+        # Ensure style index 0 remains the ECMA-376 defaults.
+        # Without this, the first non-default alignment/protection parsed from
+        # cellXfs can accidentally take index 0 and be applied to default cells.
+        if 0 not in self.workbook._alignment_styles:
+            self.workbook._alignment_styles[0] = {
+                'horizontal': 'general',
+                'vertical': 'bottom',
+                'wrap_text': False,
+                'indent': 0,
+                'text_rotation': 0,
+                'shrink_to_fit': False,
+                'reading_order': 0,
+                'relative_indent': 0
+            }
+        if 0 not in self.workbook._protection_styles:
+            self.workbook._protection_styles[0] = {
+                'locked': True,
+                'hidden': False
+            }
+
         cell_xfs = styles_root.findall('.//main:cellXfs/main:xf', namespaces=self.ns)
         for i, xf_elem in enumerate(cell_xfs):
-            if i == 0:
-                continue  # Skip default cellXf
             font_idx = int(xf_elem.get('fontId', 0))
             fill_idx = int(xf_elem.get('fillId', 0))
             border_idx = int(xf_elem.get('borderId', 0))

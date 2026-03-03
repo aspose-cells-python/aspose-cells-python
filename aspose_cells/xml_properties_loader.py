@@ -321,6 +321,12 @@ class WorksheetPropertiesXMLLoader:
             format_props._default_col_width = float(elem.get('defaultColWidth'))
         if elem.get('defaultRowHeight'):
             format_props._default_row_height = float(elem.get('defaultRowHeight'))
+        dy_descent = elem.get('{http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac}dyDescent')
+        if dy_descent is not None:
+            try:
+                format_props._dy_descent = float(dy_descent)
+            except ValueError:
+                format_props._dy_descent = None
         format_props._custom_height = elem.get('customHeight') == '1'
         format_props._zero_height = elem.get('zeroHeight') == '1'
         format_props._thick_top = elem.get('thickTop') == '1'

@@ -14,6 +14,12 @@ from .conditional_format import ConditionalFormatCollection
 from .worksheet_properties import WorksheetProperties
 from .hyperlink import Hyperlinks
 from .data_validation import DataValidationCollection
+from .page_break import HorizontalPageBreakCollection, VerticalPageBreakCollection
+from .chart import ChartCollection
+from .picture import PictureCollection
+from .shape import ShapeCollection
+from .table import TableCollection
+from .sparkline import SparklineGroupCollection
 
 
 class SheetProtectionDictWrapper:
@@ -153,10 +159,29 @@ class Worksheet:
         self._data_validations = DataValidationCollection()  # Data validation rules
         self._properties = WorksheetProperties()  # Worksheet properties
         self._hyperlinks = Hyperlinks(self)  # Hyperlinks collection
+        self._charts = ChartCollection(self)  # Charts collection
+        self._pictures = PictureCollection(self)  # Pictures collection
+        self._shapes = ShapeCollection(self)  # Drawing shapes collection
+        self._tables = TableCollection(self)  # Structured tables (ListObjects)
+        self._tables_dirty = False
+        self._sparkline_groups = SparklineGroupCollection(self)  # Sparklines
+        self._source_sparkline_xml = None   # raw <ext ...>...</ext> for round-trip
+        self._sparklines_dirty = False
+        self._source_drawing_xml = None
+        self._source_drawing_rels_xml = None
+        self._source_drawing_extra_parts = []
+        self._drawing_dirty = False
         self._row_heights = {}  # Row index -> height (points)
         self._column_widths = {}  # Column index -> width (characters)
+        self._column_styles = {}  # Column index -> xf style index
         self._hidden_rows = set()  # Set of hidden row indices
         self._hidden_columns = set()  # Set of hidden column indices
+        self._merged_cells = []  # List of merged ranges in A1 notation (e.g., "A1:B2")
+        self._print_area = None  # Print area in A1 notation (e.g., "A1:D20" or "A1:D20,F1:F20")
+        self._horizontal_page_breaks = set()  # Set of 0-based row indices with manual breaks
+        self._vertical_page_breaks = set()  # Set of 0-based column indices with manual breaks
+        self._horizontal_page_breaks_collection = HorizontalPageBreakCollection(self)
+        self._vertical_page_breaks_collection = VerticalPageBreakCollection(self)
         
         # Page setup settings
         self._page_setup = {
@@ -236,12 +261,23 @@ class Worksheet:
     def visible(self, value):
         """
         Sets the visibility state of the worksheet.
-        
+
         Args:
             value (bool or str): True for visible, False for hidden, 'veryHidden' for very hidden.
         """
         self._visible = value
-    
+
+    def set_visibility(self, value):
+        """Set worksheet visibility. Accepts True, False, or 'veryHidden'."""
+        if value is True or value is False or value == 'veryHidden':
+            self._visible = value
+        else:
+            raise ValueError(f"Invalid visibility value: {value!r}. Use True, False, or 'veryHidden'.")
+
+    def get_visibility(self):
+        """Return current worksheet visibility (True, False, or 'veryHidden')."""
+        return self._visible
+
     @property
     def tab_color(self):
         """
@@ -256,12 +292,70 @@ class Worksheet:
     def tab_color(self, value):
         """
         Sets the tab color of the worksheet.
-        
+
         Args:
             value (str): The tab color in RGB hex format (AARRGGBB), or None to clear.
         """
         self._tab_color = value
-    
+
+    def set_tab_color(self, color):
+        """Set the worksheet tab color. color must be an 8-char AARRGGBB hex string."""
+        if color is not None and len(color) != 8:
+            raise ValueError(f"Invalid tab color format: {color!r}. Expected 8-char AARRGGBB hex string.")
+        self._tab_color = color.upper() if color else None
+
+    def get_tab_color(self):
+        """Return the worksheet tab color (8-char AARRGGBB hex) or None."""
+        return self._tab_color
+
+    def clear_tab_color(self):
+        """Clear the worksheet tab color."""
+        self._tab_color = None
+
+    def set_page_orientation(self, orientation):
+        """Set page orientation. orientation must be 'portrait' or 'landscape'."""
+        if orientation not in ('portrait', 'landscape'):
+            raise ValueError(f"Invalid orientation: {orientation!r}. Use 'portrait' or 'landscape'.")
+        self._page_setup['orientation'] = orientation
+
+    def get_page_orientation(self):
+        """Return the page orientation ('portrait', 'landscape', or None)."""
+        return self._page_setup.get('orientation')
+
+    def set_paper_size(self, paper_size):
+        """Set the paper size (integer code, e.g. 9 = A4)."""
+        self._page_setup['paper_size'] = paper_size
+
+    def get_paper_size(self):
+        """Return the paper size integer code."""
+        return self._page_setup.get('paper_size')
+
+    def set_page_margins(self, left=None, right=None, top=None, bottom=None,
+                         header=None, footer=None):
+        """Set page margins (in inches). Only provided values are updated."""
+        if left   is not None: self._page_margins['left']   = left
+        if right  is not None: self._page_margins['right']  = right
+        if top    is not None: self._page_margins['top']    = top
+        if bottom is not None: self._page_margins['bottom'] = bottom
+        if header is not None: self._page_margins['header'] = header
+        if footer is not None: self._page_margins['footer'] = footer
+
+    def get_page_margins(self):
+        """Return a copy of the page margins dict."""
+        return dict(self._page_margins)
+
+    def set_fit_to_pages(self, width=1, height=1):
+        """Set fit-to-pages: width and height are page counts (0 = auto)."""
+        self._page_setup['fit_to_width']  = width
+        self._page_setup['fit_to_height'] = height
+        self._page_setup['fit_to_page']   = True
+
+    def set_print_scale(self, scale):
+        """Set print scale percentage (10–400)."""
+        if scale < 10 or scale > 400:
+            raise ValueError(f"Print scale must be between 10 and 400, got {scale}.")
+        self._page_setup['scale'] = scale
+
     @property
     def auto_filter(self):
         """
@@ -338,6 +432,62 @@ class Worksheet:
         return self._hyperlinks
 
     @property
+    def charts(self):
+        """
+        Gets the collection of charts for this worksheet.
+
+        Returns:
+            ChartCollection: The chart collection.
+        """
+        return self._charts
+
+    @property
+    def shapes(self):
+        """
+        Gets the collection of drawing shapes for this worksheet.
+
+        Returns:
+            ShapeCollection: The shapes collection.
+        """
+        return self._shapes
+
+    @property
+    def tables(self):
+        """
+        Gets the collection of structured tables (ListObjects) for this worksheet.
+
+        Returns:
+            TableCollection: The tables collection.
+        """
+        return self._tables
+
+    @property
+    def sparkline_groups(self):
+        """
+        Gets the collection of sparkline groups for this worksheet.
+
+        Returns:
+            SparklineGroupCollection: The sparkline groups collection.
+        """
+        return self._sparkline_groups
+
+    @property
+    def pictures(self):
+        """
+        Gets the collection of pictures for this worksheet.
+
+        Returns:
+            PictureCollection: The picture collection.
+        """
+        return self._pictures
+
+    def _mark_drawing_dirty(self):
+        self._source_drawing_xml = None
+        self._source_drawing_rels_xml = None
+        self._source_drawing_extra_parts = []
+        self._drawing_dirty = True
+
+    @property
     def protection(self):
         """
         Gets the protection settings for this worksheet.
@@ -383,6 +533,98 @@ class Worksheet:
             >>> ws.properties.page_setup.orientation = "landscape"
         """
         return self._properties
+
+    @property
+    def horizontal_page_breaks(self):
+        """
+        Gets manual horizontal page break collection.
+
+        Returns:
+            HorizontalPageBreakCollection: Collection for manual row page breaks.
+        """
+        return self._horizontal_page_breaks_collection
+
+    @property
+    def vertical_page_breaks(self):
+        """
+        Gets manual vertical page break collection.
+
+        Returns:
+            VerticalPageBreakCollection: Collection for manual column page breaks.
+        """
+        return self._vertical_page_breaks_collection
+
+    @property
+    def merged_cells(self):
+        """
+        Gets merged cell ranges in A1 notation.
+
+        Returns:
+            list[str]: Merged ranges (e.g., ["A1:B2", "D4:F4"]).
+        """
+        return list(self._merged_cells)
+
+    @property
+    def print_area(self):
+        """
+        Gets or sets print area in A1 notation.
+
+        Returns:
+            str or None: Print area string (e.g., "A1:D20" or "A1:D20,F1:F20"), or None.
+        """
+        return self._print_area
+
+    @print_area.setter
+    def print_area(self, value):
+        """Sets print area in A1 notation."""
+        if value is None:
+            self._print_area = None
+            return
+        self._print_area = self._normalize_print_area(value)
+
+    def set_print_area(self, print_area):
+        """
+        Sets the worksheet print area.
+
+        Args:
+            print_area (str): A1-style range(s), e.g. "A1:D20" or "A1:D20,F1:F20".
+        """
+        self.print_area = print_area
+
+    def clear_print_area(self):
+        """Clears the worksheet print area."""
+        self._print_area = None
+
+    def SetPrintArea(self, print_area):
+        return self.set_print_area(print_area)
+
+    def ClearPrintArea(self):
+        return self.clear_print_area()
+
+    def _normalize_print_area(self, print_area):
+        """
+        Validates and normalizes print area string into uppercase A1 notation.
+        """
+        if not isinstance(print_area, str) or not print_area.strip():
+            raise ValueError("print_area must be a non-empty string")
+
+        parts = []
+        for token in print_area.split(','):
+            part = token.strip().upper().replace('$', '')
+            if not part:
+                continue
+            if ':' in part:
+                start_ref, end_ref = part.split(':', 1)
+                Cells.coordinate_from_string(start_ref)
+                Cells.coordinate_from_string(end_ref)
+                parts.append(f"{start_ref}:{end_ref}")
+            else:
+                Cells.coordinate_from_string(part)
+                parts.append(part)
+
+        if not parts:
+            raise ValueError("print_area must contain at least one valid range")
+        return ','.join(parts)
 
     # Methods
     
@@ -509,6 +751,19 @@ class Worksheet:
             new_ws._cells._cells[ref] = Cell(cell.value, cell.formula)
             if cell.style:
                 new_ws._cells._cells[ref].style = cell.style.copy()
+        new_ws._merged_cells = list(self._merged_cells)
+        new_ws._print_area = self._print_area
+        new_ws._horizontal_page_breaks = set(self._horizontal_page_breaks)
+        new_ws._vertical_page_breaks = set(self._vertical_page_breaks)
+        new_ws._charts = self._charts.copy(new_ws)
+        new_ws._pictures = self._pictures.copy(new_ws)
+        new_ws._shapes = self._shapes.copy(new_ws)
+        new_ws._tables = self._tables.copy(new_ws)
+        new_ws._tables_dirty = self._tables_dirty
+        new_ws._sparkline_groups = self._sparkline_groups.copy(new_ws)
+        new_ws._source_sparkline_xml = self._source_sparkline_xml
+        new_ws._sparklines_dirty = self._sparklines_dirty
+        new_ws._drawing_dirty = self._drawing_dirty
         return new_ws
     
     def delete(self):

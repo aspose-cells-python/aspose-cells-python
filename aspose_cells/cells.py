@@ -39,6 +39,15 @@ class Cells:
     def _require_worksheet(self):
         if self._worksheet is None:
             raise ValueError("Cells is not attached to a Worksheet")
+
+    def _normalize_key(self, key):
+        """Convert tuple coordinates like (row, col) into A1 cell references."""
+        if isinstance(key, tuple) and len(key) == 2:
+            row, column = key
+            if isinstance(column, str):
+                column = self.column_index_from_string(column)
+            return self.coordinate_to_string(int(row), int(column))
+        return key
     
     # Cell access methods
     
@@ -56,6 +65,7 @@ class Cells:
             >>> cell = cells['A1']
             >>> cell.value = "Hello"
         """
+        key = self._normalize_key(key)
         if key not in self._cells:
             self._cells[key] = Cell()
         return self._cells[key]
@@ -73,6 +83,7 @@ class Cells:
             >>> cells['B1'] = 42
             >>> cells['C1'] = Cell("Custom cell")
         """
+        key = self._normalize_key(key)
         if key not in self._cells:
             self._cells[key] = Cell()
         if isinstance(value, Cell):
@@ -448,30 +459,30 @@ class Cells:
         Sets the height of the specified row in points.
 
         Args:
-            row (int): 1-based row index.
+            row (int): 0-based row index.
             height (float): Row height in points (must be > 0).
         """
         self._require_worksheet()
-        if row is None or row < 1:
-            raise ValueError("row must be >= 1")
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
         if height is None or height <= 0:
             raise ValueError("height must be > 0")
-        self._worksheet._row_heights[int(row)] = float(height)
+        self._worksheet._row_heights[int(row) + 1] = float(height)
 
     def get_row_height(self, row):
         """
         Gets the height of the specified row in points.
 
         Args:
-            row (int): 1-based row index.
+            row (int): 0-based row index.
 
         Returns:
             float: Row height in points.
         """
         self._require_worksheet()
-        if row is None or row < 1:
-            raise ValueError("row must be >= 1")
-        row = int(row)
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        row = int(row) + 1
         if row in self._worksheet._row_heights:
             return self._worksheet._row_heights[row]
         return float(self._worksheet.properties.format.default_row_height)
@@ -481,46 +492,46 @@ class Cells:
         Hides the specified row.
 
         Args:
-            row (int): 1-based row index.
+            row (int): 0-based row index.
         """
         self._require_worksheet()
-        if row is None or row < 1:
-            raise ValueError("row must be >= 1")
-        self._worksheet._hidden_rows.add(int(row))
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        self._worksheet._hidden_rows.add(int(row) + 1)
 
     def unhide_row(self, row):
         """
         Unhides the specified row.
 
         Args:
-            row (int): 1-based row index.
+            row (int): 0-based row index.
         """
         self._require_worksheet()
-        if row is None or row < 1:
-            raise ValueError("row must be >= 1")
-        self._worksheet._hidden_rows.discard(int(row))
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        self._worksheet._hidden_rows.discard(int(row) + 1)
 
     def is_row_hidden(self, row):
         """
         Checks if the specified row is hidden.
 
         Args:
-            row (int): 1-based row index.
+            row (int): 0-based row index.
 
         Returns:
             bool: True if hidden, False otherwise.
         """
         self._require_worksheet()
-        if row is None or row < 1:
-            raise ValueError("row must be >= 1")
-        return int(row) in self._worksheet._hidden_rows
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        return (int(row) + 1) in self._worksheet._hidden_rows
 
     def set_column_width(self, column, width):
         """
         Sets the width of the specified column in character units.
 
         Args:
-            column (int or str): 1-based column index or column letter.
+            column (int or str): 0-based column index or column letter.
             width (float): Column width in characters (must be > 0).
         """
         self._require_worksheet()
@@ -528,8 +539,10 @@ class Cells:
             raise ValueError("column must be specified")
         if isinstance(column, str):
             column = self.column_index_from_string(column)
-        if column < 1:
-            raise ValueError("column must be >= 1")
+        else:
+            if column < 0:
+                raise ValueError("column must be >= 0")
+            column = int(column) + 1
         if width is None or width <= 0:
             raise ValueError("width must be > 0")
         self._worksheet._column_widths[int(column)] = float(width)
@@ -539,7 +552,7 @@ class Cells:
         Gets the width of the specified column in character units.
 
         Args:
-            column (int or str): 1-based column index or column letter.
+            column (int or str): 0-based column index or column letter.
 
         Returns:
             float: Column width in characters.
@@ -549,9 +562,10 @@ class Cells:
             raise ValueError("column must be specified")
         if isinstance(column, str):
             column = self.column_index_from_string(column)
-        if column < 1:
-            raise ValueError("column must be >= 1")
-        column = int(column)
+        else:
+            if column < 0:
+                raise ValueError("column must be >= 0")
+            column = int(column) + 1
         if column in self._worksheet._column_widths:
             return self._worksheet._column_widths[column]
         fmt = self._worksheet.properties.format
@@ -564,15 +578,17 @@ class Cells:
         Hides the specified column.
 
         Args:
-            column (int or str): 1-based column index or column letter.
+            column (int or str): 0-based column index or column letter.
         """
         self._require_worksheet()
         if column is None:
             raise ValueError("column must be specified")
         if isinstance(column, str):
             column = self.column_index_from_string(column)
-        if column < 1:
-            raise ValueError("column must be >= 1")
+        else:
+            if column < 0:
+                raise ValueError("column must be >= 0")
+            column = int(column) + 1
         self._worksheet._hidden_columns.add(int(column))
 
     def unhide_column(self, column):
@@ -580,15 +596,17 @@ class Cells:
         Unhides the specified column.
 
         Args:
-            column (int or str): 1-based column index or column letter.
+            column (int or str): 0-based column index or column letter.
         """
         self._require_worksheet()
         if column is None:
             raise ValueError("column must be specified")
         if isinstance(column, str):
             column = self.column_index_from_string(column)
-        if column < 1:
-            raise ValueError("column must be >= 1")
+        else:
+            if column < 0:
+                raise ValueError("column must be >= 0")
+            column = int(column) + 1
         self._worksheet._hidden_columns.discard(int(column))
 
     def is_column_hidden(self, column):
@@ -596,7 +614,7 @@ class Cells:
         Checks if the specified column is hidden.
 
         Args:
-            column (int or str): 1-based column index or column letter.
+            column (int or str): 0-based column index or column letter.
 
         Returns:
             bool: True if hidden, False otherwise.
@@ -606,8 +624,10 @@ class Cells:
             raise ValueError("column must be specified")
         if isinstance(column, str):
             column = self.column_index_from_string(column)
-        if column < 1:
-            raise ValueError("column must be >= 1")
+        else:
+            if column < 0:
+                raise ValueError("column must be >= 0")
+            column = int(column) + 1
         return int(column) in self._worksheet._hidden_columns
 
     # Aspose.Cells .NET-style aliases
@@ -639,6 +659,220 @@ class Cells:
 
     def IsColumnHidden(self, column):
         return self.is_column_hidden(column)
+
+    # Merge cells (Aspose.Cells compatible)
+
+    def merge(self, first_row, first_column, total_rows, total_columns):
+        """
+        Merges a rectangular range of cells.
+
+        Args:
+            first_row (int): 0-based start row index.
+            first_column (int): 0-based start column index.
+            total_rows (int): Number of rows in the merge area (>= 1).
+            total_columns (int): Number of columns in the merge area (>= 1).
+        """
+        self._require_worksheet()
+        if first_row is None or int(first_row) < 0:
+            raise ValueError("first_row must be >= 0")
+        if first_column is None or int(first_column) < 0:
+            raise ValueError("first_column must be >= 0")
+        if total_rows is None or int(total_rows) < 1:
+            raise ValueError("total_rows must be >= 1")
+        if total_columns is None or int(total_columns) < 1:
+            raise ValueError("total_columns must be >= 1")
+
+        first_row = int(first_row)
+        first_column = int(first_column)
+        total_rows = int(total_rows)
+        total_columns = int(total_columns)
+
+        start_ref = self.coordinate_to_string(first_row + 1, first_column + 1)
+        end_ref = self.coordinate_to_string(first_row + total_rows, first_column + total_columns)
+        merge_ref = f"{start_ref}:{end_ref}" if start_ref != end_ref else start_ref
+        merge_ref = merge_ref.upper()
+
+        if merge_ref not in self._worksheet._merged_cells:
+            self._worksheet._merged_cells.append(merge_ref)
+
+    def unmerge(self, first_row, first_column, total_rows, total_columns):
+        """
+        Unmerges a previously merged rectangular range of cells.
+
+        Args:
+            first_row (int): 0-based start row index.
+            first_column (int): 0-based start column index.
+            total_rows (int): Number of rows in the merge area (>= 1).
+            total_columns (int): Number of columns in the merge area (>= 1).
+        """
+        self._require_worksheet()
+        if first_row is None or int(first_row) < 0:
+            raise ValueError("first_row must be >= 0")
+        if first_column is None or int(first_column) < 0:
+            raise ValueError("first_column must be >= 0")
+        if total_rows is None or int(total_rows) < 1:
+            raise ValueError("total_rows must be >= 1")
+        if total_columns is None or int(total_columns) < 1:
+            raise ValueError("total_columns must be >= 1")
+
+        first_row = int(first_row)
+        first_column = int(first_column)
+        total_rows = int(total_rows)
+        total_columns = int(total_columns)
+
+        start_ref = self.coordinate_to_string(first_row + 1, first_column + 1)
+        end_ref = self.coordinate_to_string(first_row + total_rows, first_column + total_columns)
+        merge_ref = f"{start_ref}:{end_ref}" if start_ref != end_ref else start_ref
+        merge_ref = merge_ref.upper()
+
+        if merge_ref in self._worksheet._merged_cells:
+            self._worksheet._merged_cells.remove(merge_ref)
+
+    def merge_range(self, range_ref):
+        """
+        Merges a range specified in A1 notation.
+
+        Args:
+            range_ref (str): Range in A1 notation (e.g., "A1:C3").
+        """
+        self._require_worksheet()
+        if not range_ref or not isinstance(range_ref, str):
+            raise ValueError("range_ref must be a non-empty string")
+        ref = range_ref.upper()
+        if ref not in self._worksheet._merged_cells:
+            self._worksheet._merged_cells.append(ref)
+
+    def unmerge_range(self, range_ref):
+        """
+        Unmerges a range specified in A1 notation.
+
+        Args:
+            range_ref (str): Range in A1 notation (e.g., "A1:C3").
+        """
+        self._require_worksheet()
+        if not range_ref or not isinstance(range_ref, str):
+            raise ValueError("range_ref must be a non-empty string")
+        ref = range_ref.upper()
+        if ref in self._worksheet._merged_cells:
+            self._worksheet._merged_cells.remove(ref)
+
+    def get_merged_cells(self):
+        """
+        Gets all merged cell ranges in A1 notation.
+
+        Returns:
+            list[str]: Merged ranges.
+        """
+        self._require_worksheet()
+        return list(self._worksheet._merged_cells)
+
+    # Aspose.Cells .NET-style aliases for merge cells
+
+    def Merge(self, first_row, first_column, total_rows, total_columns):
+        return self.merge(first_row, first_column, total_rows, total_columns)
+
+    def UnMerge(self, first_row, first_column, total_rows, total_columns):
+        return self.unmerge(first_row, first_column, total_rows, total_columns)
+
+    # Manual page breaks (Aspose.Cells compatible)
+
+    def set_horizontal_page_break(self, row):
+        """
+        Adds a manual horizontal page break at the specified 0-based row index.
+
+        Args:
+            row (int): 0-based row index.
+        """
+        self._require_worksheet()
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        self._worksheet.horizontal_page_breaks.add(int(row))
+
+    def remove_horizontal_page_break(self, row):
+        """
+        Removes a manual horizontal page break at the specified 0-based row index.
+
+        Args:
+            row (int): 0-based row index.
+        """
+        self._require_worksheet()
+        if row is None or row < 0:
+            raise ValueError("row must be >= 0")
+        self._worksheet.horizontal_page_breaks.remove(int(row))
+
+    def clear_horizontal_page_breaks(self):
+        """Clears all manual horizontal page breaks."""
+        self._require_worksheet()
+        self._worksheet.horizontal_page_breaks.clear()
+
+    def get_horizontal_page_breaks(self):
+        """
+        Gets all manual horizontal page breaks.
+
+        Returns:
+            list[int]: Sorted list of 0-based row indices.
+        """
+        self._require_worksheet()
+        return self._worksheet.horizontal_page_breaks.to_list()
+
+    def set_vertical_page_break(self, column):
+        """
+        Adds a manual vertical page break at the specified 0-based column index.
+
+        Args:
+            column (int or str): 0-based column index or column letter.
+        """
+        self._require_worksheet()
+        if column is None:
+            raise ValueError("column must be specified")
+        self._worksheet.vertical_page_breaks.add(column)
+
+    def remove_vertical_page_break(self, column):
+        """
+        Removes a manual vertical page break at the specified 0-based column index.
+
+        Args:
+            column (int or str): 0-based column index or column letter.
+        """
+        self._require_worksheet()
+        if column is None:
+            raise ValueError("column must be specified")
+        self._worksheet.vertical_page_breaks.remove(column)
+
+    def clear_vertical_page_breaks(self):
+        """Clears all manual vertical page breaks."""
+        self._require_worksheet()
+        self._worksheet.vertical_page_breaks.clear()
+
+    def get_vertical_page_breaks(self):
+        """
+        Gets all manual vertical page breaks.
+
+        Returns:
+            list[int]: Sorted list of 0-based column indices.
+        """
+        self._require_worksheet()
+        return self._worksheet.vertical_page_breaks.to_list()
+
+    # Aspose.Cells .NET-style aliases for page breaks
+
+    def SetHorizontalPageBreak(self, row):
+        return self.set_horizontal_page_break(row)
+
+    def RemoveHorizontalPageBreak(self, row):
+        return self.remove_horizontal_page_break(row)
+
+    def ClearHorizontalPageBreaks(self):
+        return self.clear_horizontal_page_breaks()
+
+    def SetVerticalPageBreak(self, column):
+        return self.set_vertical_page_break(column)
+
+    def RemoveVerticalPageBreak(self, column):
+        return self.remove_vertical_page_break(column)
+
+    def ClearVerticalPageBreaks(self):
+        return self.clear_vertical_page_breaks()
     
     # Range methods
     

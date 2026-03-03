@@ -44,25 +44,26 @@ def hash_password(password):
     # Return as hex string (uppercase, 4 digits)
     return f"{hash_value:04X}"
 
-# Test with password "abc"
-password = "abc"
-print(f"Testing password: '{password}'")
-print(f"Expected (openpyxl): CC1A")
-print()
+if __name__ == '__main__':
+    # Test with password "abc"
+    password = "abc"
+    print(f"Testing password: '{password}'")
+    print(f"Expected (openpyxl): CC1A")
+    print()
 
-print(f"Result: {hash_password(password)}")
+    print(f"Result: {hash_password(password)}")
 
-# Manual trace
-password_bytes = password.encode('utf-16-le')
-print(f"UTF-16LE bytes: {[hex(b) for b in password_bytes[:6]]}")
+    # Manual trace
+    password_bytes = password.encode('utf-16-le')
+    print(f"UTF-16LE bytes: {[hex(b) for b in password_bytes[:6]]}")
 
-hash_value = 0
-for i in range(len(password_bytes) // 2):
-    char = password_bytes[i*2] | (password_bytes[i*2+1] << 8)
-    print(f"Char {i+1}: {hex(char)}")
-    hash_value ^= char
-    print(f"  After XOR: {hex(hash_value)}")
-    hash_value = ((hash_value >> 1) | (hash_value << 15)) & 0xFFFF
-    print(f"  After rotate: {hex(hash_value)}")
-    hash_value = (hash_value + i) & 0xFFFF
-    print(f"  After add index: {hex(hash_value)}")
+    hash_value = 0
+    for i in range(len(password_bytes) // 2):
+        char = password_bytes[i*2] | (password_bytes[i*2+1] << 8)
+        print(f"Char {i+1}: {hex(char)}")
+        hash_value ^= char
+        print(f"  After XOR: {hex(hash_value)}")
+        hash_value = ((hash_value >> 1) | (hash_value << 15)) & 0xFFFF
+        print(f"  After rotate: {hex(hash_value)}")
+        hash_value = (hash_value + i) & 0xFFFF
+        print(f"  After add index: {hex(hash_value)}")

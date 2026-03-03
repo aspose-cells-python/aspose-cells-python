@@ -131,7 +131,9 @@ class Workbook:
             self._load(file_path, password)
         else:
             # Create default worksheet
-            self._worksheets.append(Worksheet("Sheet1"))
+            worksheet = Worksheet("Sheet1")
+            worksheet._workbook = self
+            self._worksheets.append(worksheet)
     
     # Properties
     
@@ -212,6 +214,7 @@ class Workbook:
             name = f"Sheet{i}"
         
         worksheet = Worksheet(name)
+        worksheet._workbook = self
         self._worksheets.append(worksheet)
         return worksheet
     
@@ -268,8 +271,109 @@ class Workbook:
                     return
             raise ValueError(f"Worksheet '{index_or_name}' not found")
         else:
-            raise TypeError("index_or_name must be int or str")
-    
+            # Try treating as a Worksheet object
+            for i, ws in enumerate(self._worksheets):
+                if ws is index_or_name:
+                    self._worksheets.pop(i)
+                    return
+            raise TypeError("index_or_name must be int, str, or Worksheet object")
+
+    def unprotect(self, password=None):
+        """Remove workbook structure/window protection."""
+        prot = self._properties.protection
+        prot.lock_structure = False
+        prot.lock_windows = False
+        prot.workbook_password = None
+
+    def create_worksheet(self, name=None):
+        """Create and add a new worksheet. Alias for add_worksheet()."""
+        return self.add_worksheet(name)
+
+    def get_worksheet_by_name(self, name):
+        """Return the worksheet with the given name, or None if not found."""
+        for ws in self._worksheets:
+            if ws.name == name:
+                return ws
+        return None
+
+    def get_worksheet_by_index(self, index):
+        """Return the worksheet at the given 0-based index, or None if out of range."""
+        if isinstance(index, int) and 0 <= index < len(self._worksheets):
+            return self._worksheets[index]
+        return None
+
+    def get_active_worksheet(self):
+        """Return the currently active worksheet."""
+        if not self._worksheets:
+            return None
+        idx = getattr(self._properties.view, 'active_tab', 0)
+        idx = max(0, min(idx, len(self._worksheets) - 1))
+        return self._worksheets[idx]
+
+    def set_active_worksheet(self, index_or_name_or_ws):
+        """Set the active worksheet by index, name, or Worksheet object."""
+        idx = None
+        if isinstance(index_or_name_or_ws, int):
+            if 0 <= index_or_name_or_ws < len(self._worksheets):
+                idx = index_or_name_or_ws
+        elif isinstance(index_or_name_or_ws, str):
+            idx = next((i for i, ws in enumerate(self._worksheets)
+                        if ws.name == index_or_name_or_ws), None)
+        else:
+            idx = next((i for i, ws in enumerate(self._worksheets)
+                        if ws is index_or_name_or_ws), None)
+        if idx is not None:
+            self._properties.view.active_tab = idx
+
+    def copy_worksheet(self, index_or_name_or_ws):
+        """Copy a worksheet and append the copy to the workbook. Returns the new worksheet."""
+        ws = None
+        if isinstance(index_or_name_or_ws, int):
+            ws = self.get_worksheet_by_index(index_or_name_or_ws)
+        elif isinstance(index_or_name_or_ws, str):
+            ws = self.get_worksheet_by_name(index_or_name_or_ws)
+        elif hasattr(index_or_name_or_ws, 'name'):
+            ws = index_or_name_or_ws
+        if ws is None:
+            return None
+        base = ws.name
+        existing = {w.name for w in self._worksheets}
+        candidate = f"{base} (copy)"
+        if candidate not in existing:
+            copy_name = candidate
+        else:
+            i = 1
+            while f"{base} (copy{i})" in existing:
+                i += 1
+            copy_name = f"{base} (copy{i})"
+        new_ws = ws.copy(copy_name)
+        new_ws._workbook = self
+        self._worksheets.append(new_ws)
+        return new_ws
+
+    def protect(self, password=None, lock_structure=True, lock_windows=False):
+        """Protect the workbook structure/windows with an optional password."""
+        from .workbook_hash_password import hash_password
+        prot = self._properties.protection
+        prot.lock_structure = lock_structure
+        prot.lock_windows = lock_windows
+        prot.workbook_password = hash_password(password) if password is not None else None
+
+    def is_protected(self):
+        """Return True if the workbook has structure or window protection enabled."""
+        prot = self._properties.protection
+        return bool(prot.lock_structure or prot.lock_windows)
+
+    @property
+    def protection(self):
+        """Return a dict with the current workbook protection settings."""
+        prot = self._properties.protection
+        return {
+            'lock_structure': prot.lock_structure,
+            'lock_windows':   prot.lock_windows,
+            'password':       prot.workbook_password,
+        }
+
     # File I/O methods
 
     def save(self, file_path, save_format=None, options=None, password=None, encryption_params=None):

@@ -359,6 +359,7 @@ class SheetFormatProperties:
         self._base_col_width = 8
         self._default_col_width = None
         self._default_row_height = 15.0
+        self._dy_descent = None
         self._custom_height = False
         self._zero_height = False
         self._thick_top = False
@@ -392,6 +393,19 @@ class SheetFormatProperties:
     @default_row_height.setter
     def default_row_height(self, value):
         self._default_row_height = value
+
+    @property
+    def dy_descent(self):
+        """
+        x14ac:dyDescent value for sheetFormatPr.
+
+        This controls text descent rendering for default row metrics in Excel.
+        """
+        return self._dy_descent
+
+    @dy_descent.setter
+    def dy_descent(self, value):
+        self._dy_descent = value
 
     @property
     def custom_height(self):

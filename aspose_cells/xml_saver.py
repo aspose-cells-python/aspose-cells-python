@@ -9,6 +9,7 @@ ECMA-376 Compliant cell value export.
 """
 
 import os
+import re
 import zipfile
 import xml.etree.ElementTree as ET
 from .cell_value_handler import CellValueHandler
@@ -19,6 +20,85 @@ from .xml_conditional_format_saver import ConditionalFormatXMLWriter
 from .xml_properties_saver import WorkbookPropertiesXMLWriter, WorksheetPropertiesXMLWriter
 from .xml_hyperlink_handler import HyperlinkXMLSaver, HyperlinkRelationshipWriter
 from .xml_datavalidation_saver import DataValidationXmlSaver
+from .xml_chart_saver import ChartXmlSaver
+from .xml_table_saver import TableXmlSaver
+from .xml_sparkline_saver import SparklineXmlSaver
+from .chart import ChartType
+from .workbook_properties import DefinedName
+
+
+# Minimal Office Theme XML injected into programmatically-created workbooks that
+# contain chartEx charts (treemap / waterfall / sunburst / histogram / funnel / map). The companion
+# style{n}.xml files
+# reference scheme colours (accent1, bg1, tx1, …) that Excel can only resolve when
+# a theme is present in the package.  Without this file Excel repairs the file and
+# removes the drawing that references the chart.
+_DEFAULT_THEME_XML = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">'
+    '<a:themeElements>'
+    '<a:clrScheme name="Office">'
+    '<a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>'
+    '<a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>'
+    '<a:dk2><a:srgbClr val="44546A"/></a:dk2>'
+    '<a:lt2><a:srgbClr val="E7E6E6"/></a:lt2>'
+    '<a:accent1><a:srgbClr val="4472C4"/></a:accent1>'
+    '<a:accent2><a:srgbClr val="ED7D31"/></a:accent2>'
+    '<a:accent3><a:srgbClr val="A9D18E"/></a:accent3>'
+    '<a:accent4><a:srgbClr val="FFC000"/></a:accent4>'
+    '<a:accent5><a:srgbClr val="5B9BD5"/></a:accent5>'
+    '<a:accent6><a:srgbClr val="70AD47"/></a:accent6>'
+    '<a:hlink><a:srgbClr val="0563C1"/></a:hlink>'
+    '<a:folHlink><a:srgbClr val="954F72"/></a:folHlink>'
+    '</a:clrScheme>'
+    '<a:fontScheme name="Office">'
+    '<a:majorFont><a:latin typeface="Calibri Light" panose="020F0302020204030204"/>'
+    '<a:ea typeface=""/><a:cs typeface=""/></a:majorFont>'
+    '<a:minorFont><a:latin typeface="Calibri" panose="020F0502020204030204"/>'
+    '<a:ea typeface=""/><a:cs typeface=""/></a:minorFont>'
+    '</a:fontScheme>'
+    '<a:fmtScheme name="Office">'
+    '<a:fillStyleLst>'
+    '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+    '<a:gradFill rotWithShape="1"><a:gsLst>'
+    '<a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs>'
+    '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+    '<a:gradFill rotWithShape="1"><a:gsLst>'
+    '<a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs>'
+    '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+    '</a:fillStyleLst>'
+    '<a:lnStyleLst>'
+    '<a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+    '<a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+    '<a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+    '</a:lnStyleLst>'
+    '<a:effectStyleLst>'
+    '<a:effectStyle><a:effectLst/></a:effectStyle>'
+    '<a:effectStyle><a:effectLst/></a:effectStyle>'
+    '<a:effectStyle><a:effectLst>'
+    '<a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0">'
+    '<a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw>'
+    '</a:effectLst></a:effectStyle>'
+    '</a:effectStyleLst>'
+    '<a:bgFillStyleLst>'
+    '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+    '<a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill>'
+    '<a:gradFill rotWithShape="1"><a:gsLst>'
+    '<a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs>'
+    '<a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs>'
+    '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+    '</a:bgFillStyleLst>'
+    '</a:fmtScheme>'
+    '</a:themeElements>'
+    '<a:objectDefaults/>'
+    '<a:extraClrSchemeLst/>'
+    '</a:theme>'
+)
 
 
 class XMLSaver:
@@ -74,6 +154,7 @@ class XMLSaver:
 
         # Initialize data validation writer
         self._dv_writer = DataValidationXmlSaver()
+        self._chart_writer = ChartXmlSaver(self._escape_xml)
 
         # Initialize properties writers
         self._wb_props_writer = WorkbookPropertiesXMLWriter(self._escape_xml)
@@ -81,6 +162,179 @@ class XMLSaver:
 
         # Initialize differential formatting (dxf) collection for conditional formatting
         self._dxf_styles = []
+        self._sheet_drawing_rel_ids = {}
+        self._sheet_drawing_paths = {}  # sheet_num -> actual "xl/drawings/drawingN.xml" path
+        self._table_writer = TableXmlSaver(self._escape_xml)
+        self._sheet_table_rel_ids = {}     # sheet_num -> {table_idx -> rel_id_str}
+        self._table_global_indices = {}    # (sheet_num, table_idx) -> global_table_num
+        self._sparkline_writer = SparklineXmlSaver(self._escape_xml)
+
+    @staticmethod
+    def _parse_attr_string(attrs_text):
+        """Parse a raw XML attribute fragment into an ordered list of (name, value)."""
+        if not attrs_text:
+            return []
+        return re.findall(r'([A-Za-z_][\w:.-]*)="([^"]*)"', attrs_text)
+
+    def _merge_root_attrs(self, base_attrs, source_attrs_text):
+        """Merge source root attributes without duplicating native declarations."""
+        merged = []
+        seen = {}
+        ignorable_tokens = []
+
+        for attr_text in base_attrs:
+            if '=' not in attr_text:
+                continue
+            name, value = attr_text.split('=', 1)
+            value = value.strip().strip('"')
+            seen[name] = len(merged)
+            merged.append((name, value))
+            if name == 'mc:Ignorable':
+                ignorable_tokens.extend(value.split())
+
+        for name, value in self._parse_attr_string(source_attrs_text):
+            if name == 'mc:Ignorable':
+                for token in value.split():
+                    if token not in ignorable_tokens:
+                        ignorable_tokens.append(token)
+                continue
+            if name in seen:
+                continue
+            seen[name] = len(merged)
+            merged.append((name, value))
+
+        if ignorable_tokens:
+            ignorable_value = ' '.join(ignorable_tokens)
+            if 'mc:Ignorable' in seen:
+                merged[seen['mc:Ignorable']] = ('mc:Ignorable', ignorable_value)
+            else:
+                merged.append(('mc:Ignorable', ignorable_value))
+
+        return [f'{name}="{value}"' for name, value in merged]
+
+    def _can_preserve_calc_chain(self):
+        """Return True when every calcChain reference still points to a formula cell."""
+        calc_chain_bytes = getattr(self._workbook, '_source_calc_chain_bytes', None)
+        if not calc_chain_bytes:
+            return False
+
+        try:
+            root = ET.fromstring(calc_chain_bytes)
+        except ET.ParseError:
+            return False
+
+        ns = {'m': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        current_sheet_idx = 1
+        worksheets = getattr(self._workbook, 'worksheets', [])
+
+        for c_elem in root.findall('m:c', ns):
+            sheet_attr = c_elem.get('i')
+            if sheet_attr is not None:
+                try:
+                    current_sheet_idx = int(sheet_attr)
+                except ValueError:
+                    return False
+            if current_sheet_idx < 1 or current_sheet_idx > len(worksheets):
+                return False
+            cell_ref = c_elem.get('r')
+            if not cell_ref:
+                return False
+            cell = worksheets[current_sheet_idx - 1].cells.get_all_cells().get(cell_ref)
+            if cell is None or not getattr(cell, 'formula', None):
+                return False
+        return True
+
+    def _compute_dimension_ref(self, worksheet):
+        """Compute worksheet dimension from populated cells, merged ranges, and tables."""
+        min_row = min_col = None
+        max_row = max_col = None
+
+        def include_ref(ref):
+            nonlocal min_row, min_col, max_row, max_col
+            if not ref:
+                return
+            if isinstance(ref, tuple) and len(ref) == 2:
+                row_idx, col_idx = ref
+                try:
+                    ref = worksheet.cells.coordinate_to_string(int(row_idx), int(col_idx))
+                except (TypeError, ValueError):
+                    return
+            elif not isinstance(ref, str):
+                return
+            if ':' in ref:
+                start_ref, end_ref = ref.split(':', 1)
+            else:
+                start_ref = end_ref = ref
+            start_row, start_col = worksheet.cells.coordinate_from_string(start_ref)
+            end_row, end_col = worksheet.cells.coordinate_from_string(end_ref)
+            if min_row is None or start_row < min_row:
+                min_row = start_row
+            if min_col is None or start_col < min_col:
+                min_col = start_col
+            if max_row is None or end_row > max_row:
+                max_row = end_row
+            if max_col is None or end_col > max_col:
+                max_col = end_col
+
+        for cell_ref in worksheet.cells.get_all_cells():
+            include_ref(cell_ref)
+        for merge_ref in getattr(worksheet, '_merged_cells', []) or []:
+            include_ref(merge_ref)
+        ws_tables = getattr(worksheet, 'tables', None)
+        if ws_tables:
+            for table in ws_tables:
+                include_ref(getattr(table, 'ref', None))
+
+        if min_row is None:
+            return getattr(worksheet, '_source_dimension_ref', None)
+
+        start_ref = worksheet.cells.coordinate_to_string(min_row, min_col)
+        end_ref = worksheet.cells.coordinate_to_string(max_row, max_col)
+        if start_ref == end_ref:
+            return start_ref
+        return f'{start_ref}:{end_ref}'
+
+    def _max_used_style_index(self):
+        """Return the highest style index referenced by workbook cells or columns."""
+        max_style = -1
+
+        for worksheet in getattr(self._workbook, 'worksheets', []):
+            for cell in worksheet.cells.get_all_cells().values():
+                style_idx = getattr(cell, '_source_style_idx', None)
+                if style_idx is None:
+                    continue
+                try:
+                    max_style = max(max_style, int(style_idx))
+                except (TypeError, ValueError):
+                    pass
+
+            for style_idx in (getattr(worksheet, '_column_styles', None) or {}).values():
+                try:
+                    max_style = max(max_style, int(style_idx))
+                except (TypeError, ValueError):
+                    pass
+
+        for style_idx in (getattr(self._workbook, '_cell_styles', None) or {}).values():
+            try:
+                max_style = max(max_style, int(style_idx))
+            except (TypeError, ValueError):
+                pass
+
+        for style_idx in (getattr(self._workbook, '_cell_xf_by_index', None) or {}).keys():
+            try:
+                max_style = max(max_style, int(style_idx))
+            except (TypeError, ValueError):
+                pass
+
+        return max_style
+
+    def _can_preserve_source_styles(self):
+        """Return True when the original styles.xml still covers all referenced style ids."""
+        source_styles = getattr(self._workbook, '_source_styles_xml', None)
+        source_cell_xfs_count = getattr(self._workbook, '_source_cell_xfs_count', 0)
+        if source_styles is None or source_cell_xfs_count <= 0:
+            return False
+        return self._max_used_style_index() < source_cell_xfs_count
 
     def _register_conditional_format_dxfs(self):
         """
@@ -89,7 +343,9 @@ class XMLSaver:
         This method assigns dxfId to each conditional format that has formatting applied.
         The dxf styles are stored in _dxf_styles for later writing to styles.xml.
         """
-        self._dxf_styles = []
+        # Preserve DXFs loaded from source styles.xml (e.g. table column dataDxfId
+        # references) so existing IDs remain valid after save.
+        self._dxf_styles = list(getattr(self._workbook, '_dxf_styles', []) or [])
 
         for worksheet in self._workbook.worksheets:
             for cf in worksheet.conditional_formats:
@@ -184,6 +440,38 @@ class XMLSaver:
         
         # Create a ZIP file (XLSX is a ZIP archive)
         with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            self._sheet_drawing_rel_ids = {}
+            self._sheet_drawing_paths = {}
+            self._sheet_table_rel_ids = {}
+            self._table_global_indices = {}
+            # Pre-pass: assign globally-unique table numbers across all worksheets.
+            _global_table_num = 1
+            for _i, _ws in enumerate(self._workbook.worksheets):
+                _ws_tables = getattr(_ws, 'tables', None)
+                if _ws_tables:
+                    for _j in range(_ws_tables.count):
+                        self._table_global_indices[(_i + 1, _j)] = _global_table_num
+                        _global_table_num += 1
+            # Sync worksheet print areas into workbook defined names before workbook.xml is generated.
+            self._sync_print_areas_to_defined_names()
+            # Inject _xlchart.v1.x defined names for new chartEx charts before workbook.xml is written.
+            self._inject_chartex_defined_names()
+            # Apply compatibility defaults for new chartEx workbooks.
+            self._apply_chartex_compat_defaults()
+
+            # Pre-populate drawing paths so _write_content_types can use them.
+            # Prefer the original stored path to avoid collisions with chart extra parts.
+            for _i, _ws in enumerate(self._workbook.worksheets):
+                _has_drawing = (
+                    (getattr(_ws, 'charts', None) is not None and _ws.charts.count > 0)
+                    or (getattr(_ws, 'pictures', None) is not None and _ws.pictures.count > 0)
+                    or (getattr(_ws, 'shapes', None) is not None and _ws.shapes.count > 0)
+                    or getattr(_ws, '_source_drawing_xml', None) is not None
+                )
+                if _has_drawing:
+                    _stored = getattr(_ws, '_source_drawing_part_path', None)
+                    self._sheet_drawing_paths[_i + 1] = _stored or f'xl/drawings/drawing{_i + 1}.xml'
+
             # Write [Content_Types].xml
             self._write_content_types(zipf)
             
@@ -202,6 +490,7 @@ class XMLSaver:
 
             # Process worksheets first to populate shared string table and style collections
             # This must be done BEFORE writing shared strings and styles XML
+            next_chart_index = 1
             for i, worksheet in enumerate(self._workbook.worksheets):
                 # Write xl/worksheets/sheet{i+1}.xml
                 self._write_worksheet_xml(zipf, worksheet, i+1)
@@ -209,11 +498,34 @@ class XMLSaver:
                 # Write xl/worksheets/_rels/sheet{i+1}.xml.rels
                 self._write_worksheet_relationships(zipf, i+1)
 
+                # Write chart and drawing parts if worksheet has charts
+                next_chart_index = self._chart_writer.write_chart_parts(zipf, worksheet, i + 1, next_chart_index)
+
+                # Write xl/tables/tableN.xml parts for this worksheet's tables
+                self._write_table_parts_for_worksheet(zipf, worksheet, i + 1)
+
                 # Write xl/comments{i+1}.xml if worksheet has comments
                 self._comment_writer.write_comments_xml(zipf, worksheet, i+1)
 
                 # Write xl/drawings/vmlDrawing{i+1}.vml if worksheet has comments
                 self._comment_writer.write_vml_drawing_xml(zipf, worksheet, i+1)
+
+                # Write source extra sheet rel parts (vmlDrawing, comments, etc.) for round-trip
+                if not self._comment_writer.worksheet_has_comments(worksheet):
+                    for r in getattr(worksheet, '_source_extra_sheet_rels', []):
+                        if r.get('part_bytes') and r.get('part_path'):
+                            zipf.writestr(r['part_path'], r['part_bytes'])
+
+            # Write extra workbook rel parts (external links, etc.) for round-trip
+            for r in getattr(self._workbook, '_source_extra_workbook_rels', []):
+                if r.get('part_bytes') and r.get('part_path'):
+                    zipf.writestr(r['part_path'], r['part_bytes'])
+                if r.get('part_rels_bytes') and r.get('part_rels_path'):
+                    zipf.writestr(r['part_rels_path'], r['part_rels_bytes'])
+            calc_chain_bytes = getattr(self._workbook, '_source_calc_chain_bytes', None)
+            calc_chain_rel = getattr(self._workbook, '_source_calc_chain_rel', None)
+            if self._can_preserve_calc_chain() and calc_chain_bytes and calc_chain_rel and calc_chain_rel.get('part_path'):
+                zipf.writestr(calc_chain_rel['part_path'], calc_chain_bytes)
 
             # Write xl/styles.xml (AFTER processing worksheets to ensure styles are registered)
             self._write_styles_xml(zipf)
@@ -221,35 +533,404 @@ class XMLSaver:
             # Write xl/sharedStrings.xml (AFTER processing worksheets)
             self._write_shared_strings_xml(zipf)
 
+            # Write xl/theme/theme1.xml when preserving a loaded theme
+            self._write_theme_xml(zipf)
+
             # Write docProps/core.xml (document properties)
             self._write_core_properties_xml(zipf)
 
             # Write docProps/app.xml (extended properties)
             self._write_app_properties_xml(zipf)
+
+    def _inject_chartex_defined_names(self):
+        """
+        Pre-computes _xlchart.v1.x defined names for new (non-source) chartEx charts
+        (TREEMAP / WATERFALL / BOX_WHISKER / SUNBURST / HISTOGRAM / FUNNEL / MAP) and stores a
+        per-series name-map on each
+        chart object.
+
+        Excel requires chartEx cx:f elements to reference workbook-level defined names
+        rather than raw cell formulas.  This must be called before _write_workbook_xml()
+        so the names appear in workbook.xml <definedNames>.
+
+        Names used by source (loaded) charts are preserved; only names from previous
+        programmatic injections are removed before re-injecting.
+        """
+        import re as _re
+
+        defined_names = self._workbook.properties.defined_names
+
+        def _a1_col_to_index(col_letters):
+            idx = 0
+            for ch in col_letters:
+                idx = idx * 26 + (ord(ch) - ord('A') + 1)
+            return idx
+
+        def _a1_index_to_col(idx):
+            letters = []
+            n = int(idx)
+            while n > 0:
+                n, rem = divmod(n - 1, 26)
+                letters.append(chr(ord('A') + rem))
+            return ''.join(reversed(letters))
+
+        def _infer_box_tx_formula(values_ref, worksheet_name):
+            """
+            For box-whisker horizontal series refs like B2:F2, infer tx from the
+            immediate left cell (A2), matching Excel-generated chartEx behavior.
+            """
+            if not values_ref:
+                return None
+            src = str(values_ref).strip()
+            if src.startswith('='):
+                src = src[1:].strip()
+            m = _re.match(
+                r"^(?:(?:'[^']+'|[^'!]+)!)?\$?([A-Za-z]{1,3})\$?(\d+)(?::\$?([A-Za-z]{1,3})\$?(\d+))?$",
+                src,
+            )
+            if not m:
+                return None
+            c1, r1, c2, r2 = m.group(1), m.group(2), m.group(3), m.group(4)
+            c2 = c2 or c1
+            r2 = r2 or r1
+            if r1 != r2:
+                return None  # only infer for single-row ranges
+            start_col_idx = _a1_col_to_index(c1.upper())
+            if start_col_idx <= 1:
+                return None
+            left_col = _a1_index_to_col(start_col_idx - 1)
+            return self._chart_writer._normalize_chart_range_formula(f"{left_col}{r1}", worksheet_name)
+
+        # Collect _xlchart.v1.x names referenced in source chart XMLs so we don't remove them.
+        source_chartex_refs = set()
+        for ws in self._workbook.worksheets:
+            if getattr(ws, 'charts', None) is None:
+                continue
+            for chart in ws.charts:
+                src = getattr(chart, '_source_chart_xml', None)
+                if src:
+                    text = src if isinstance(src, str) else src.decode('utf-8', errors='replace')
+                    for m in _re.findall(r'_xlchart\.v1\.\d+', text):
+                        source_chartex_refs.add(m)
+
+        # Remove _xlchart.v1.x names NOT referenced by any source chart (i.e. from a
+        # previous programmatic injection).
+        defined_names._names = [
+            dn for dn in defined_names._names
+            if not dn.name.startswith('_xlchart.v1.') or dn.name in source_chartex_refs
+        ]
+
+        # Start counter after the highest existing _xlchart.v1.x index.
+        counter = 0
+        for dn in defined_names._names:
+            if dn.name.startswith('_xlchart.v1.'):
+                try:
+                    n = int(dn.name[len('_xlchart.v1.'):])
+                    counter = max(counter, n + 1)
+                except (ValueError, IndexError):
+                    pass
+
+        for worksheet in self._workbook.worksheets:
+            if getattr(worksheet, 'charts', None) is None:
+                continue
+            for chart in worksheet.charts:
+                # Only new (non-source) chartEx charts need injected defined names.
+                if getattr(chart, '_source_chart_xml', None) is not None:
+                    continue
+                if chart.type not in (ChartType.TREEMAP, ChartType.WATERFALL, ChartType.BOX_WHISKER, ChartType.SUNBURST, ChartType.HISTOGRAM, ChartType.FUNNEL, ChartType.MAP):
+                    continue
+
+                # Build a list of per-series defined-name refs used by chartEx.
+                series_name_map = []
+                for series in chart.n_series:
+                    categories_source = (
+                        series.category_data if series.category_data
+                        else getattr(chart, 'category_data', None)
+                    )
+                    cat_name = None
+                    if categories_source:
+                        cat_formula = self._chart_writer._normalize_chart_range_formula(
+                            categories_source, worksheet.name
+                        )
+                        cat_dn_name = f'_xlchart.v1.{counter}'
+                        _cat_dn = DefinedName(cat_dn_name, cat_formula)
+                        _cat_dn.hidden = True
+                        defined_names.add(_cat_dn)
+                        counter += 1
+                        cat_name = cat_dn_name
+
+                    val_formula = self._chart_writer._normalize_chart_range_formula(
+                        series.values, worksheet.name
+                    )
+                    val_dn_name = f'_xlchart.v1.{counter}'
+                    _val_dn = DefinedName(val_dn_name, val_formula)
+                    _val_dn.hidden = True
+                    defined_names.add(_val_dn)
+                    counter += 1
+
+                    tx_name = None
+                    if series.name:
+                        # Only emit tx defined names when series.name is a real cell/range ref.
+                        # Literal strings (e.g. "Sales") must stay as cx:v only; emitting a
+                        # synthetic defined name for literals can trigger Excel repair.
+                        tx_source = str(series.name).strip()
+                        if tx_source.startswith('='):
+                            tx_source = tx_source[1:].strip()
+
+                        # Optional sheet-name prefix must include '!' when present.
+                        ref_like = _re.match(
+                            r"^(?:(?:'[^']+'|[^'!]+)!)?\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?$",
+                            tx_source,
+                        )
+                        if ref_like:
+                            tx_formula = self._chart_writer._normalize_chart_range_formula(
+                                tx_source, worksheet.name
+                            )
+                            tx_dn_name = f'_xlchart.v1.{counter}'
+                            _tx_dn = DefinedName(tx_dn_name, tx_formula)
+                            _tx_dn.hidden = True
+                            defined_names.add(_tx_dn)
+                            counter += 1
+                            tx_name = tx_dn_name
+                        elif chart.type == ChartType.BOX_WHISKER:
+                            inferred_tx_formula = _infer_box_tx_formula(series.values, worksheet.name)
+                            if inferred_tx_formula:
+                                tx_dn_name = f'_xlchart.v1.{counter}'
+                                _tx_dn = DefinedName(tx_dn_name, inferred_tx_formula)
+                                _tx_dn.hidden = True
+                                defined_names.add(_tx_dn)
+                                counter += 1
+                                tx_name = tx_dn_name
+
+                    series_name_map.append({'cat': cat_name, 'val': val_dn_name, 'tx': tx_name})
+
+                chart._chartex_series_name_map = series_name_map
+
+    def _has_new_chartex(self):
+        """True if workbook contains a programmatically-created chartEx chart."""
+        for ws in self._workbook.worksheets:
+            for chart in getattr(ws, 'charts', []):
+                if chart.type in (ChartType.TREEMAP, ChartType.WATERFALL, ChartType.BOX_WHISKER, ChartType.SUNBURST, ChartType.HISTOGRAM, ChartType.FUNNEL, ChartType.MAP):
+                    if getattr(chart, '_source_chart_xml', None) is None:
+                        return True
+        return False
+
+    def _apply_chartex_compat_defaults(self):
+        """
+        Normalizes workbook/worksheet metadata for new chartEx files.
+
+        Some Excel builds are strict about metadata accompanying chartEx drawings.
+        These defaults align programmatic output with files that Excel opens
+        without repair dialogs.
+        """
+        if not self._has_new_chartex():
+            return
+
+        props = self._workbook.properties
+
+        # Match modern Excel build metadata seen in valid chartEx packages.
+        props.file_version.last_edited = "7"
+        props.file_version.lowest_edited = "7"
+        props.file_version.rup_build = "29628"
+        props.workbook_pr.default_theme_version = 202300
+        if props.calculation.calc_id is None or int(props.calculation.calc_id) == 0:
+            # For programmatic chartEx compatibility, keep calcId at 0.
+            props.calculation.calc_id = 0
+
+        # Ensure sheetFormatPr uses x14ac dyDescent when writing chartEx drawings.
+        for ws in self._workbook.worksheets:
+            if ws.properties.format.dy_descent is None:
+                ws.properties.format.dy_descent = 0.3
+
+    def _sync_print_areas_to_defined_names(self):
+        """
+        Synchronizes worksheet print areas with workbook defined names.
+
+        Excel stores print areas as local defined names named '_xlnm.Print_Area'
+        in workbook.xml (one per worksheet that has a print area).
+        """
+        defined_names = self._workbook.properties.defined_names
+        existing = [dn for dn in defined_names if dn.name != '_xlnm.Print_Area']
+        defined_names._names = existing
+
+        for sheet_idx, worksheet in enumerate(self._workbook.worksheets):
+            print_area = getattr(worksheet, '_print_area', None)
+            if not print_area:
+                continue
+
+            sheet_name = worksheet.name.replace("'", "''")
+            refs = []
+            for token in str(print_area).split(','):
+                part = token.strip().upper()
+                if not part:
+                    continue
+                if ':' in part:
+                    start_ref, end_ref = part.split(':', 1)
+                else:
+                    start_ref, end_ref = part, part
+                abs_start = self._to_absolute_a1_ref(start_ref)
+                abs_end = self._to_absolute_a1_ref(end_ref)
+                abs_ref = f"{abs_start}:{abs_end}" if abs_start != abs_end else abs_start
+                refs.append(f"'{sheet_name}'!{abs_ref}")
+
+            if refs:
+                defined_names.add('_xlnm.Print_Area', ','.join(refs), local_sheet_id=sheet_idx)
+
+    def _to_absolute_a1_ref(self, ref):
+        """
+        Converts A1 reference (e.g. A1) to absolute form (e.g. $A$1).
+        """
+        ref = str(ref).replace('$', '').upper()
+        col = ''.join(ch for ch in ref if ch.isalpha())
+        row = ''.join(ch for ch in ref if ch.isdigit())
+        if not col or not row:
+            return ref
+        return f"${col}${row}"
     
     def _write_content_types(self, zipf):
         """Writes [Content_Types].xml file."""
         content = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         content += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
-        content += '    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n'
-        content += '    <Default Extension="xml" ContentType="application/xml"/>\n'
-        content += '    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n'
-        content += '    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>\n'
-        content += '    <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>\n'
+        override_seen = set()
+
+        def append_override(part_name, content_type):
+            key = (part_name, content_type)
+            if key in override_seen:
+                return ""
+            override_seen.add(key)
+            return f'    <Override PartName="{part_name}" ContentType="{self._escape_xml(content_type)}"/>\n'
+
+        default_types = {
+            "rels": "application/vnd.openxmlformats-package.relationships+xml",
+            "xml": "application/xml",
+        }
+        for ext, ctype in getattr(self._workbook, '_content_type_defaults', {}).items():
+            if ext and ctype:
+                default_types[str(ext).lower()] = ctype
+        for ext in sorted(default_types.keys()):
+            content += f'    <Default Extension="{self._escape_xml(ext)}" ContentType="{self._escape_xml(default_types[ext])}"/>\n'
+
+        # Ensure image defaults are available when workbook has pictures.
+        image_ext_content_types = {
+            "png": "image/png",
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "gif": "image/gif",
+            "bmp": "image/bmp",
+            "tif": "image/tiff",
+            "tiff": "image/tiff",
+            "webp": "image/webp",
+        }
+        image_exts = set()
+        for worksheet in self._workbook.worksheets:
+            pics = getattr(worksheet, "pictures", None)
+            if pics is None:
+                continue
+            for pic in pics:
+                ext = getattr(pic, "_image_extension", None)
+                if ext:
+                    image_exts.add(str(ext).lower().lstrip("."))
+        for ext in sorted(image_exts):
+            if ext in default_types:
+                continue
+            if ext in image_ext_content_types:
+                content += f'    <Default Extension="{self._escape_xml(ext)}" ContentType="{self._escape_xml(image_ext_content_types[ext])}"/>\n'
+
+        content += append_override("/xl/workbook.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml")
+        content += append_override("/xl/styles.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml")
+        content += append_override("/xl/sharedStrings.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
         
         # Add worksheet content types
         for i in range(len(self._workbook.worksheets)):
-            content += f'    <Override PartName="/xl/worksheets/sheet{i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>\n'
+            content += append_override(f"/xl/worksheets/sheet{i+1}.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")
         
         # Add comments and VML drawing content types for worksheets that have comments
         for i, worksheet in enumerate(self._workbook.worksheets):
             if self._comment_writer.worksheet_has_comments(worksheet):
-                content += f'    <Override PartName="/xl/comments{i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>\n'
-                content += f'    <Override PartName="/xl/drawings/vmlDrawing{i+1}.vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>\n'
+                content += append_override(f"/xl/comments{i+1}.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml")
+                content += append_override(f"/xl/drawings/vmlDrawing{i+1}.vml", "application/vnd.openxmlformats-officedocument.vmlDrawing")
+            else:
+                # Register content types for comments files preserved via source extra sheet rels
+                # (files may use non-standard numbering, e.g. comments1.xml on sheet2)
+                for r in getattr(worksheet, '_source_extra_sheet_rels', []):
+                    if 'comments' in r.get('rel_type', '').lower() and r.get('part_path'):
+                        part_name = f'/{r["part_path"].lstrip("/")}'
+                        content += append_override(part_name, "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml")
+
+        # Add chart drawing/chart part content types
+        chart_index = 1
+        for i, worksheet in enumerate(self._workbook.worksheets):
+            has_charts = getattr(worksheet, 'charts', None) is not None and worksheet.charts.count > 0
+            has_pictures = getattr(worksheet, 'pictures', None) is not None and worksheet.pictures.count > 0
+            has_shapes = getattr(worksheet, 'shapes', None) is not None and worksheet.shapes.count > 0
+            has_source_drawing = getattr(worksheet, '_source_drawing_xml', None) is not None
+            if has_charts or has_pictures or has_shapes or has_source_drawing:
+                drawing_path = self._sheet_drawing_paths.get(i + 1, f'xl/drawings/drawing{i+1}.xml')
+                content += append_override(f'/{drawing_path}', "application/vnd.openxmlformats-officedocument.drawing+xml")
+                for chart in worksheet.charts if has_charts else []:
+                    source_part_path = getattr(chart, '_source_chart_part_path', None)
+                    source_content_type = getattr(chart, '_source_chart_content_type', None)
+                    if getattr(chart, '_source_chart_xml', None) is not None and source_part_path and source_content_type:
+                        part_name = f'/{source_part_path.lstrip("/")}'
+                        content += append_override(part_name, source_content_type)
+                    else:
+                        is_chart_ex = bool(getattr(chart, '_source_is_chart_ex', False)) or chart.type in (ChartType.WATERFALL, ChartType.TREEMAP, ChartType.BOX_WHISKER, ChartType.SUNBURST, ChartType.HISTOGRAM, ChartType.FUNNEL, ChartType.MAP)
+                        if is_chart_ex:
+                            content += append_override(
+                                f"/xl/charts/chartEx{chart_index}.xml",
+                                "application/vnd.ms-office.chartex+xml",
+                            )
+                            # Excel requires companion style/colors files for every chartEx chart.
+                            content += append_override(
+                                f"/xl/charts/style{chart_index}.xml",
+                                "application/vnd.ms-office.chartstyle+xml",
+                            )
+                            content += append_override(
+                                f"/xl/charts/colors{chart_index}.xml",
+                                "application/vnd.ms-office.chartcolorstyle+xml",
+                            )
+                        else:
+                            content += append_override(
+                                f"/xl/charts/chart{chart_index}.xml",
+                                "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
+                            )
+                    chart_index += 1
+
+        # Add extra chart-related content types preserved from loaded files (e.g. style/colors parts)
+        for part_name, content_type in self._chart_writer.get_extra_content_type_overrides(self._workbook):
+            content += append_override(part_name, content_type)
+
+        # Add content types for extra workbook rel parts (external links, etc.)
+        for r in getattr(self._workbook, '_source_extra_workbook_rels', []):
+            if r.get('part_path') and r.get('content_type'):
+                content += append_override(f'/{r["part_path"]}', r['content_type'])
+        calc_chain_rel = getattr(self._workbook, '_source_calc_chain_rel', None)
+        preserve_calc_chain = self._can_preserve_calc_chain()
+        if preserve_calc_chain and calc_chain_rel and calc_chain_rel.get('part_path'):
+            content += append_override(
+                f'/{calc_chain_rel["part_path"]}',
+                calc_chain_rel.get('content_type') or "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml",
+            )
+
+        # Add table content types (xl/tables/tableN.xml)
+        for _i, _ws in enumerate(self._workbook.worksheets):
+            _ws_tables = getattr(_ws, 'tables', None)
+            if _ws_tables and _ws_tables.count > 0:
+                for _j in range(_ws_tables.count):
+                    _gidx = self._table_global_indices.get((_i + 1, _j), _j + 1)
+                    _table = _ws_tables[_j]
+                    _src_path = getattr(_table, '_source_part_path', None)
+                    _part_name = f'/{_src_path}' if _src_path else f'/xl/tables/table{_gidx}.xml'
+                    content += append_override(_part_name,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml")
+
+        # Add theme content type when theme part is available (loaded or default)
+        if getattr(self._workbook, '_theme_xml', None) is not None or self._needs_default_theme():
+            content += append_override("/xl/theme/theme1.xml", "application/vnd.openxmlformats-officedocument.theme+xml")
 
         # Add docProps content types
-        content += '    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>\n'
-        content += '    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>\n'
+        content += append_override("/docProps/core.xml", "application/vnd.openxmlformats-package.core-properties+xml")
+        content += append_override("/docProps/app.xml", "application/vnd.openxmlformats-officedocument.extended-properties+xml")
 
         content += '</Types>\n'
         zipf.writestr('[Content_Types].xml', content)
@@ -276,13 +957,33 @@ class XMLSaver:
         # Add styles and shared strings relationships
         content += '    <Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>\n'
         content += '    <Relationship Id="rId101" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>\n'
+        if getattr(self._workbook, '_theme_xml', None) is not None or self._needs_default_theme():
+            content += '    <Relationship Id="rId102" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>\n'
+
+        # Emit extra workbook rels (external links, etc.) preserved from the source file
+        for r in getattr(self._workbook, '_source_extra_workbook_rels', []):
+            content += f'    <Relationship Id="{r["rel_id"]}" Type="{r["rel_type"]}" Target="{r["target"]}"/>\n'
+        calc_chain_rel = getattr(self._workbook, '_source_calc_chain_rel', None)
+        if self._can_preserve_calc_chain() and calc_chain_rel:
+            content += (
+                f'    <Relationship Id="{calc_chain_rel["rel_id"]}" '
+                f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain" '
+                f'Target="{calc_chain_rel["target"]}"/>\n'
+            )
+
         content += '</Relationships>\n'
         zipf.writestr('xl/_rels/workbook.xml.rels', content)
     
     def _write_workbook_xml(self, zipf):
         """Writes xl/workbook.xml file."""
         content = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-        content += '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n'
+        workbook_attrs = [
+            'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+        ]
+        source_workbook_extra_attrs = getattr(self._workbook, '_source_workbook_root_extra_attrs', '')
+        workbook_attrs = self._merge_root_attrs(workbook_attrs, source_workbook_extra_attrs)
+        content += f'<workbook {" ".join(workbook_attrs)}>\n'
 
         # Write workbook properties
         props = self._workbook.properties
@@ -292,6 +993,14 @@ class XMLSaver:
 
         # Workbook properties (ECMA-376 Section 18.2.13)
         content += self._wb_props_writer.format_workbook_pr_xml(props.workbook_pr)
+
+        source_alt_content = getattr(self._workbook, '_source_workbook_alt_content_xml', None)
+        if source_alt_content:
+            content += source_alt_content + '\n'
+
+        source_revision_ptr = getattr(self._workbook, '_source_workbook_revision_ptr_xml', None)
+        if source_revision_ptr:
+            content += source_revision_ptr + '\n'
 
         # Workbook protection (ECMA-376 Section 18.2.29)
         content += self._wb_props_writer.format_workbook_protection_xml(props.protection)
@@ -313,11 +1022,25 @@ class XMLSaver:
 
         content += '    </sheets>\n'
 
+        external_link_rels = [
+            r for r in getattr(self._workbook, '_source_extra_workbook_rels', [])
+            if r.get('rel_type') == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink'
+        ]
+        if external_link_rels:
+            content += '    <externalReferences>\n'
+            for r in external_link_rels:
+                content += f'        <externalReference r:id="{r["rel_id"]}"/>\n'
+            content += '    </externalReferences>\n'
+
         # Defined names (ECMA-376 Section 18.2.6)
         content += self._wb_props_writer.format_defined_names_xml(props.defined_names)
 
         # Calculation properties (ECMA-376 Section 18.2.2)
         content += self._wb_props_writer.format_calc_pr_xml(props.calculation)
+
+        source_workbook_extlst = getattr(self._workbook, '_source_workbook_extlst_xml', None)
+        if source_workbook_extlst:
+            content += source_workbook_extlst + '\n'
 
         content += '</workbook>\n'
         zipf.writestr('xl/workbook.xml', content)
@@ -335,14 +1058,57 @@ class XMLSaver:
             sheet_num: The worksheet number (1-based).
         """
         content = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-        content += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n'
-
-        # Write worksheet properties
+        worksheet_xml_attrs = [
+            'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+        ]
         ws_props = worksheet.properties
+        if ws_props.format.dy_descent is not None:
+            worksheet_xml_attrs.append('xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"')
+            worksheet_xml_attrs.append('xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"')
+            worksheet_xml_attrs.append('mc:Ignorable="x14ac"')
+        source_root_extra_attrs = getattr(worksheet, '_source_root_extra_attrs', '')
+        worksheet_xml_attrs = self._merge_root_attrs(worksheet_xml_attrs, source_root_extra_attrs)
+        content += f'<worksheet {" ".join(worksheet_xml_attrs)}>\n'
+        drawing_rel_id = None
+        next_reserved_rel_id = 1
+        if self._comment_writer.worksheet_has_comments(worksheet):
+            next_reserved_rel_id = 3
+        has_charts = getattr(worksheet, 'charts', None) is not None and worksheet.charts.count > 0
+        has_pictures = getattr(worksheet, 'pictures', None) is not None and worksheet.pictures.count > 0
+        has_shapes = getattr(worksheet, 'shapes', None) is not None and worksheet.shapes.count > 0
+        has_source_drawing = getattr(worksheet, '_source_drawing_xml', None) is not None
+        if has_charts or has_pictures or has_shapes or has_source_drawing:
+            drawing_rel_id = f"rId{next_reserved_rel_id}"
+            self._sheet_drawing_rel_ids[sheet_num] = drawing_rel_id
+            next_reserved_rel_id += 1
+            # Record actual drawing path: prefer original stored path to avoid
+            # conflicts with chart extra parts (e.g. chartUserShapes) that may
+            # occupy the sheet-number-based path.
+            stored_path = getattr(worksheet, '_source_drawing_part_path', None)
+            self._sheet_drawing_paths[sheet_num] = stored_path or f'xl/drawings/drawing{sheet_num}.xml'
+
+        # Assign rel IDs for tables
+        has_tables = getattr(worksheet, 'tables', None) is not None and worksheet.tables.count > 0
+        table_rel_ids = {}
+        if has_tables:
+            for _j in range(worksheet.tables.count):
+                table_rel_ids[_j] = f"rId{next_reserved_rel_id}"
+                next_reserved_rel_id += 1
+        self._sheet_table_rel_ids[sheet_num] = table_rel_ids
+
+        source_sheet_pr_xml = getattr(worksheet, '_source_sheet_pr_xml', None)
+        if source_sheet_pr_xml:
+            content += f'    {source_sheet_pr_xml}\n'
+
+        dimension_ref = self._compute_dimension_ref(worksheet)
+        if dimension_ref:
+            content += f'    <dimension ref="{self._escape_xml(dimension_ref)}"/>\n'
 
         # Sheet views (ECMA-376 Section 18.3.1.88)
-        is_first_sheet = (sheet_num == 1)
-        content += self._ws_props_writer.format_sheet_views_xml(ws_props, is_selected=is_first_sheet)
+        active_tab = getattr(getattr(self._workbook, "properties", None).view, "active_tab", 0)
+        is_active_sheet = (sheet_num - 1) == int(active_tab)
+        content += self._ws_props_writer.format_sheet_views_xml(ws_props, is_selected=is_active_sheet)
 
         # Sheet format properties (ECMA-376 Section 18.3.1.82)
         content += self._ws_props_writer.format_sheet_format_pr_xml(ws_props.format)
@@ -403,6 +1169,14 @@ class XMLSaver:
         if worksheet.auto_filter.range is not None:
             content += self._autofilter_writer.format_auto_filter_xml(worksheet.auto_filter)
 
+        # Write merged cells (ECMA-376 Section 18.3.1.55)
+        # mergeCells is written after sheetData/autoFilter and before conditional formatting.
+        content += self._format_merge_cells_xml(worksheet)
+
+        source_phonetic_pr_xml = getattr(worksheet, '_source_phonetic_pr_xml', None)
+        if source_phonetic_pr_xml:
+            content += f'    {source_phonetic_pr_xml}\n'
+
         # Write conditional formatting (ECMA-376 Section 18.3.1.18)
         # conditionalFormatting must come AFTER autoFilter per ECMA-376 schema sequence
         if len(worksheet.conditional_formats) > 0:
@@ -412,7 +1186,7 @@ class XMLSaver:
         # hyperlinks must come AFTER conditionalFormatting per ECMA-376 schema sequence
         if worksheet.hyperlinks.count > 0:
             # Reset relationship counter for this worksheet
-            self._hyperlink_writer.reset_relationship_counter()
+            self._hyperlink_writer.reset_relationship_counter(start_rel_id=next_reserved_rel_id)
             content += self._hyperlink_writer.format_hyperlinks_xml(worksheet)
 
         # Write data validations (ECMA-376 Section 18.3.1.30, 18.3.1.31)
@@ -432,9 +1206,40 @@ class XMLSaver:
         # Header/footer (ECMA-376 Section 18.3.1.46)
         content += self._ws_props_writer.format_header_footer_xml(ws_props.header_footer)
 
+        # Manual page breaks (ECMA-376 Section 18.3.1.73/18.3.1.17)
+        content += self._format_row_breaks_xml(worksheet)
+        content += self._format_col_breaks_xml(worksheet)
+
+        # Add drawing reference if worksheet has drawing content (charts/pictures/source drawing).
+        if drawing_rel_id:
+            content += f'    <drawing r:id="{drawing_rel_id}"/>\n'
+
         # Add legacy drawing reference if worksheet has comments
         if self._comment_writer.worksheet_has_comments(worksheet):
             content += '    <legacyDrawing r:id="rId1"/>\n'
+        else:
+            # Preserve legacyDrawing from source extra rels (e.g. vmlDrawing with non-standard numbering)
+            extra_rels = getattr(worksheet, '_source_extra_sheet_rels', [])
+            vml_rel = next(
+                (r for r in extra_rels if 'vmlDrawing' in r.get('rel_type', '')),
+                None
+            )
+            if vml_rel:
+                content += f'    <legacyDrawing r:id="{vml_rel["rel_id"]}"/>\n'
+
+        # Add <tableParts> if worksheet has tables (ECMA-376 §18.3.1 — after legacyDrawing)
+        _table_rel_ids = self._sheet_table_rel_ids.get(sheet_num, {})
+        if _table_rel_ids:
+            _tbl_count = len(_table_rel_ids)
+            content += f'    <tableParts count="{_tbl_count}">\n'
+            for _j in range(_tbl_count):
+                content += f'        <tablePart r:id="{_table_rel_ids[_j]}"/>\n'
+            content += '    </tableParts>\n'
+
+        # Add sparkline <extLst> (ECMA-376: last element before </worksheet>)
+        _sparkline_xml = self._sparkline_writer.format_sparkline_extlst_xml(worksheet)
+        if _sparkline_xml:
+            content += _sparkline_xml
 
         content += '</worksheet>\n'
         zipf.writestr(f'xl/worksheets/sheet{sheet_num}.xml', content)
@@ -444,21 +1249,49 @@ class XMLSaver:
         Formats column width settings as <cols> XML.
         """
         col_widths = getattr(worksheet, '_column_widths', None) or {}
+        col_styles = getattr(worksheet, '_column_styles', None) or {}
         hidden_cols = getattr(worksheet, '_hidden_columns', None) or set()
-        if not col_widths and not hidden_cols:
+        if not col_widths and not hidden_cols and not col_styles:
             return ''
 
         lines = ['    <cols>']
-        all_cols = sorted(set(col_widths.keys()) | set(hidden_cols))
-        for col_idx in all_cols:
-            attrs = [f'min="{col_idx}"', f'max="{col_idx}"']
-            if col_idx in col_widths:
-                width = col_widths[col_idx]
+        all_cols = sorted(set(col_widths.keys()) | set(hidden_cols) | set(col_styles.keys()))
+        default_width = getattr(getattr(worksheet, 'properties', None).format, 'default_col_width', None)
+
+        def col_signature(col_idx):
+            return (
+                col_widths.get(col_idx),
+                col_styles.get(col_idx),
+                col_idx in hidden_cols,
+            )
+
+        range_start = all_cols[0]
+        range_end = all_cols[0]
+        current_sig = col_signature(all_cols[0])
+
+        def emit_range(start_idx, end_idx, sig):
+            width, style_idx, hidden = sig
+            attrs = [f'min="{start_idx}"', f'max="{end_idx}"']
+            if width is not None:
                 attrs.append(f'width="{width}"')
-                attrs.append('customWidth="1"')
-            if col_idx in hidden_cols:
+                if default_width is None or abs(float(width) - float(default_width)) > 1e-9:
+                    attrs.append('customWidth="1"')
+            if style_idx is not None:
+                attrs.append(f'style="{style_idx}"')
+            if hidden:
                 attrs.append('hidden="1"')
             lines.append(f'        <col {" ".join(attrs)}/>')
+
+        for col_idx in all_cols[1:]:
+            sig = col_signature(col_idx)
+            if col_idx == range_end + 1 and sig == current_sig:
+                range_end = col_idx
+                continue
+            emit_range(range_start, range_end, current_sig)
+            range_start = range_end = col_idx
+            current_sig = sig
+
+        emit_range(range_start, range_end, current_sig)
         lines.append('    </cols>\n')
         return '\n'.join(lines)
     
@@ -475,6 +1308,66 @@ class XMLSaver:
         from .cells import Cells
         row, col = Cells.coordinate_from_string(ref)
         return (row, col)
+
+    def _format_row_breaks_xml(self, worksheet):
+        """
+        Formats manual horizontal page breaks as <rowBreaks> XML.
+
+        Args:
+            worksheet: The worksheet containing manual row breaks.
+
+        Returns:
+            str: XML string for rowBreaks.
+        """
+        breaks = sorted(getattr(worksheet, '_horizontal_page_breaks', set()))
+        if not breaks:
+            return ''
+
+        lines = [f'    <rowBreaks count="{len(breaks)}" manualBreakCount="{len(breaks)}">']
+        for row_idx in breaks:
+            lines.append(f'        <brk id="{int(row_idx)}" max="16383" man="1"/>')
+        lines.append('    </rowBreaks>\n')
+        return '\n'.join(lines)
+
+    def _format_col_breaks_xml(self, worksheet):
+        """
+        Formats manual vertical page breaks as <colBreaks> XML.
+
+        Args:
+            worksheet: The worksheet containing manual column breaks.
+
+        Returns:
+            str: XML string for colBreaks.
+        """
+        breaks = sorted(getattr(worksheet, '_vertical_page_breaks', set()))
+        if not breaks:
+            return ''
+
+        lines = [f'    <colBreaks count="{len(breaks)}" manualBreakCount="{len(breaks)}">']
+        for col_idx in breaks:
+            lines.append(f'        <brk id="{int(col_idx)}" max="1048575" man="1"/>')
+        lines.append('    </colBreaks>\n')
+        return '\n'.join(lines)
+
+    def _format_merge_cells_xml(self, worksheet):
+        """
+        Formats merged cell ranges as <mergeCells> XML.
+
+        Args:
+            worksheet: The worksheet containing merged ranges.
+
+        Returns:
+            str: XML string for mergeCells.
+        """
+        merged = list(getattr(worksheet, '_merged_cells', []) or [])
+        if not merged:
+            return ''
+
+        lines = [f'    <mergeCells count="{len(merged)}">']
+        for merge_ref in merged:
+            lines.append(f'        <mergeCell ref="{self._escape_xml(str(merge_ref).upper())}"/>')
+        lines.append('    </mergeCells>\n')
+        return '\n'.join(lines)
 
     def _format_data_validations_xml(self, validations):
         """
@@ -623,8 +1516,12 @@ class XMLSaver:
         Returns:
             str: XML representation of the cell
         """
-        # Get or create cell style index
-        style_idx = self.get_or_create_cell_style(cell)
+        # Preserve original style index for loaded cells to avoid xf index drift.
+        source_style_idx = getattr(cell, '_source_style_idx', None)
+        if source_style_idx is not None:
+            style_idx = int(source_style_idx)
+        else:
+            style_idx = self.get_or_create_cell_style(cell)
         
         # Format value using CellValueHandler for ECMA-376 compliance
         value_str, cell_type = CellValueHandler.format_value_for_xml(cell.value)
@@ -702,18 +1599,49 @@ class XMLSaver:
         text = text.replace("'", '&apos;')
         
         return text
-    
+
     def _write_worksheet_relationships(self, zipf, sheet_num):
         """Writes xl/worksheets/_rels/sheet{sheet_num}.xml.rels file."""
         worksheet = self._workbook.worksheets[sheet_num - 1]
 
-        # Collect existing relationships (comments, VML)
+        # Collect existing relationships (comments, VML, drawing)
         existing_rels = []
         if self._comment_writer.worksheet_has_comments(worksheet):
             existing_rels.append(('rId1', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing',
                                  f'../drawings/vmlDrawing{sheet_num}.vml', None))
             existing_rels.append(('rId2', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments',
                                  f'../comments{sheet_num}.xml', None))
+        else:
+            # Preserve source extra sheet rels (vmlDrawing, comments, etc.) for round-trip fidelity
+            extra_rels = getattr(worksheet, '_source_extra_sheet_rels', [])
+            for r in extra_rels:
+                existing_rels.append((
+                    r['rel_id'],
+                    r['rel_type'],
+                    r['target'],
+                    r['target_mode'] if r['target_mode'] else None,
+                ))
+        drawing_rel_id = self._sheet_drawing_rel_ids.get(sheet_num)
+        if drawing_rel_id:
+            drawing_path = self._sheet_drawing_paths.get(sheet_num, f'xl/drawings/drawing{sheet_num}.xml')
+            drawing_target = '../' + drawing_path[len('xl/'):]  # "xl/drawings/drawingN.xml" -> "../drawings/drawingN.xml"
+            existing_rels.append((drawing_rel_id, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing',
+                                 drawing_target, None))
+
+        # Add table relationship entries
+        _tbl_rel_ids = self._sheet_table_rel_ids.get(sheet_num, {})
+        _ws_tables = getattr(worksheet, 'tables', None)
+        if _tbl_rel_ids and _ws_tables:
+            for _j in range(_ws_tables.count):
+                _gidx = self._table_global_indices.get((sheet_num, _j), _j + 1)
+                _rel_id = _tbl_rel_ids.get(_j)
+                if _rel_id:
+                    _src_path = getattr(_ws_tables[_j], '_source_part_path', None)
+                    _target_path = _src_path or f'xl/tables/table{_gidx}.xml'
+                    _target = '../' + _target_path[len('xl/'):]
+                    existing_rels.append((_rel_id,
+                        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/table',
+                        _target, None))
 
         # Get hyperlink relationships
         hyperlink_rels = self._hyperlink_writer.get_hyperlink_relationships(worksheet)
@@ -725,6 +1653,10 @@ class XMLSaver:
 
     def _write_styles_xml(self, zipf):
         """Writes xl/styles.xml file."""
+        if self._can_preserve_source_styles():
+            zipf.writestr('xl/styles.xml', self._workbook._source_styles_xml)
+            return
+
         # Register default styles
         self.register_default_styles()
         
@@ -759,26 +1691,63 @@ class XMLSaver:
             border_data = self._workbook._border_styles[border_idx]
             content += self._format_border_xml(border_data)
         content += '    </borders>\n'
+
+        # Base style XF table required by cellXfs xfId references.
+        content += '    <cellStyleXfs count="1">\n'
+        content += '        <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>\n'
+        content += '    </cellStyleXfs>\n'
         
-        # Write cellXfs
-        content += f'    <cellXfs count="{len(self._workbook._cell_styles) + 1}">\n'
-        # Default cellXf
-        content += '        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>\n'
-        
-        for cell_style_key, xf_idx in sorted(self._workbook._cell_styles.items(), key=lambda x: x[1]):
-            font_idx, fill_idx, border_idx, num_fmt_idx, alignment_idx, protection_idx = cell_style_key
-            apply_number_format = f' applyNumberFormat="1"' if num_fmt_idx != 0 else ''
-            apply_protection = f' applyProtection="1"' if protection_idx != 0 else ''
-            content += f'        <xf numFmtId="{num_fmt_idx}" fontId="{font_idx}" fillId="{fill_idx}" borderId="{border_idx}" xfId="0"{apply_number_format}{apply_protection}>\n'
-            if alignment_idx > 0:
-                align_data = self._workbook._alignment_styles[alignment_idx]
-                content += self._format_alignment_xml(align_data)
-            if protection_idx > 0:
-                prot_data = self._workbook._protection_styles[protection_idx]
-                content += self._format_protection_xml(prot_data)
-            content += '        </xf>\n'
-        
-        content += '    </cellXfs>\n'
+        # Write cellXfs.
+        # Preserve original xf ordering/duplicates when loaded from existing files.
+        if hasattr(self._workbook, '_cell_xf_by_index') and self._workbook._cell_xf_by_index:
+            max_xf_idx = max(self._workbook._cell_xf_by_index.keys())
+            if max_xf_idx < 0:
+                max_xf_idx = 0
+            content += f'    <cellXfs count="{max_xf_idx + 1}">\n'
+            for xf_idx in range(0, max_xf_idx + 1):
+                if xf_idx == 0 and xf_idx not in self._workbook._cell_xf_by_index:
+                    content += '        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>\n'
+                    continue
+                cell_style_key = self._workbook._cell_xf_by_index.get(xf_idx, (0, 0, 0, 0, 0, 0))
+                font_idx, fill_idx, border_idx, num_fmt_idx, alignment_idx, protection_idx = cell_style_key
+                apply_number_format = f' applyNumberFormat="1"' if num_fmt_idx != 0 else ''
+                apply_protection = f' applyProtection="1"' if protection_idx != 0 else ''
+                content += (
+                    f'        <xf numFmtId="{num_fmt_idx}" fontId="{font_idx}" fillId="{fill_idx}" '
+                    f'borderId="{border_idx}" xfId="0"{apply_number_format}{apply_protection}>\n'
+                )
+                if alignment_idx > 0 and alignment_idx in self._workbook._alignment_styles:
+                    align_data = self._workbook._alignment_styles[alignment_idx]
+                    content += self._format_alignment_xml(align_data)
+                if protection_idx > 0 and protection_idx in self._workbook._protection_styles:
+                    prot_data = self._workbook._protection_styles[protection_idx]
+                    content += self._format_protection_xml(prot_data)
+                content += '        </xf>\n'
+            content += '    </cellXfs>\n'
+        else:
+            content += f'    <cellXfs count="{len(self._workbook._cell_styles) + 1}">\n'
+            content += '        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>\n'
+            for cell_style_key, xf_idx in sorted(self._workbook._cell_styles.items(), key=lambda x: x[1]):
+                font_idx, fill_idx, border_idx, num_fmt_idx, alignment_idx, protection_idx = cell_style_key
+                apply_number_format = f' applyNumberFormat="1"' if num_fmt_idx != 0 else ''
+                apply_protection = f' applyProtection="1"' if protection_idx != 0 else ''
+                content += (
+                    f'        <xf numFmtId="{num_fmt_idx}" fontId="{font_idx}" fillId="{fill_idx}" '
+                    f'borderId="{border_idx}" xfId="0"{apply_number_format}{apply_protection}>\n'
+                )
+                if alignment_idx > 0:
+                    align_data = self._workbook._alignment_styles[alignment_idx]
+                    content += self._format_alignment_xml(align_data)
+                if protection_idx > 0:
+                    prot_data = self._workbook._protection_styles[protection_idx]
+                    content += self._format_protection_xml(prot_data)
+                content += '        </xf>\n'
+            content += '    </cellXfs>\n'
+
+        # At minimum define the built-in Normal style.
+        content += '    <cellStyles count="1">\n'
+        content += '        <cellStyle name="Normal" xfId="0" builtinId="0"/>\n'
+        content += '    </cellStyles>\n'
 
         # Write differential formatting (dxf) for conditional formatting
         if len(self._dxf_styles) > 0:
@@ -859,8 +1828,28 @@ class XMLSaver:
         if font_data.get('strikethrough'):
             xml += '            <strike/>\n'
         xml += f'            <sz val="{font_data["size"]}"/>\n'
-        xml += f'            <color rgb="{font_data["color"]}"/>\n'
+        color_type = font_data.get('color_type', 'rgb')
+        color_value = font_data.get('color_value', font_data.get('color', 'FF000000'))
+        color_tint = font_data.get('color_tint')
+        if color_type == 'theme':
+            tint_attr = f' tint="{color_tint}"' if color_tint is not None else ''
+            xml += f'            <color theme="{color_value}"{tint_attr}/>\n'
+        elif color_type == 'indexed':
+            tint_attr = f' tint="{color_tint}"' if color_tint is not None else ''
+            xml += f'            <color indexed="{color_value}"{tint_attr}/>\n'
+        elif color_type == 'auto':
+            xml += f'            <color auto="{color_value}"/>\n'
+        elif color_type is None:
+            pass
+        else:
+            xml += f'            <color rgb="{font_data.get("color", "FF000000")}"/>\n'
         xml += f'            <name val="{font_data["name"]}"/>\n'
+        if font_data.get('family') is not None:
+            xml += f'            <family val="{font_data["family"]}"/>\n'
+        if font_data.get('charset') is not None:
+            xml += f'            <charset val="{font_data["charset"]}"/>\n'
+        if font_data.get('scheme') is not None:
+            xml += f'            <scheme val="{font_data["scheme"]}"/>\n'
         xml += '        </font>\n'
         return xml
     
@@ -869,11 +1858,27 @@ class XMLSaver:
         pattern_type = fill_data['pattern_type']
         xml = f'        <fill>\n            <patternFill patternType="{pattern_type}"'
         if pattern_type != 'none' and pattern_type != 'gray125':
-            xml += f'>\n                <fgColor rgb="{fill_data["fg_color"]}"/>\n                <bgColor rgb="{fill_data["bg_color"]}"/>\n            </patternFill>\n'
+            xml += '>\n'
+            xml += f'                {self._format_fill_color_tag("fgColor", fill_data, "fg")}\n'
+            xml += f'                {self._format_fill_color_tag("bgColor", fill_data, "bg")}\n'
+            xml += '            </patternFill>\n'
         else:
             xml += '/>\n'
         xml += '        </fill>\n'
         return xml
+
+    def _format_fill_color_tag(self, tag_name, fill_data, prefix):
+        color_type = fill_data.get(f'{prefix}_color_type', 'rgb')
+        color_value = fill_data.get(f'{prefix}_color_value', fill_data.get(f'{prefix}_color', 'FFFFFFFF'))
+        tint = fill_data.get(f'{prefix}_color_tint')
+        tint_attr = f' tint="{tint}"' if tint is not None else ''
+        if color_type == 'theme':
+            return f'<{tag_name} theme="{color_value}"{tint_attr}/>'
+        if color_type == 'indexed':
+            return f'<{tag_name} indexed="{color_value}"{tint_attr}/>'
+        if color_type == 'auto':
+            return f'<{tag_name} auto="{color_value}"{tint_attr}/>'
+        return f'<{tag_name} rgb="{fill_data.get(f"{prefix}_color", "FFFFFFFF")}"/>'
     
     def _format_border_xml(self, border_data):
         """Formats border data as XML."""
@@ -938,59 +1943,128 @@ class XMLSaver:
         """Writes xl/sharedStrings.xml file."""
         content = self._shared_string_table.to_xml()
         zipf.writestr('xl/sharedStrings.xml', content)
+
+    def _needs_default_theme(self):
+        """Returns True when the workbook needs a default theme injected.
+
+        A default theme is needed when there is no loaded theme (_theme_xml is None)
+        but the workbook contains at least one new (programmatically-created) chartEx
+        chart (TREEMAP, WATERFALL, BOX_WHISKER, SUNBURST, HISTOGRAM, FUNNEL, or MAP). Those charts write a companion style{n}.xml
+        that references scheme colours which Excel can only resolve with a theme.
+        Without the theme Excel repairs the file and removes the drawing.
+        """
+        if getattr(self._workbook, '_theme_xml', None) is not None:
+            return False
+        for ws in self._workbook.worksheets:
+            for chart in getattr(ws, 'charts', []):
+                if chart.type in (ChartType.TREEMAP, ChartType.WATERFALL, ChartType.BOX_WHISKER, ChartType.SUNBURST, ChartType.HISTOGRAM, ChartType.FUNNEL, ChartType.MAP):
+                    if getattr(chart, '_source_chart_xml', None) is None:
+                        return True
+        return False
+
+    def _write_table_parts_for_worksheet(self, zipf, worksheet, sheet_num):
+        """Write xl/tables/tableN.xml files for all tables in one worksheet."""
+        ws_tables = getattr(worksheet, 'tables', None)
+        if not ws_tables or ws_tables.count == 0:
+            return
+        for j, table in enumerate(ws_tables):
+            gidx = self._table_global_indices.get((sheet_num, j), j + 1)
+            if getattr(table, '_source_table_xml', None) is not None:
+                path = getattr(table, '_source_part_path', None) or f'xl/tables/table{gidx}.xml'
+                zipf.writestr(path, table._source_table_xml)
+            else:
+                path = f'xl/tables/table{gidx}.xml'
+                xml_str = self._table_writer.format_table_xml(table, gidx)
+                zipf.writestr(path, xml_str.encode('utf-8'))
+
+    def _write_theme_xml(self, zipf):
+        """Writes xl/theme/theme1.xml.
+
+        Uses the loaded theme when available; otherwise injects a minimal default
+        theme for workbooks that contain new chartEx charts.
+        """
+        theme_xml = getattr(self._workbook, '_theme_xml', None)
+        if theme_xml is not None:
+            zipf.writestr('xl/theme/theme1.xml', theme_xml)
+        elif self._needs_default_theme():
+            zipf.writestr('xl/theme/theme1.xml', _DEFAULT_THEME_XML.encode('utf-8'))
     
     # Style management methods for XML creation
     
     def register_default_styles(self):
         """Registers default styles for fonts, fills, borders, and alignments."""
         # Default font (Calibri, 11pt, black) - index 0
-        self._workbook._font_styles[0] = {
-            'name': 'Calibri',
-            'size': 11,
-            'color': 'FF000000',
-            'bold': False,
-            'italic': False,
-            'underline': False,
-            'strikethrough': False
-        }
+        if 0 not in self._workbook._font_styles:
+            self._workbook._font_styles[0] = {
+                'name': 'Calibri',
+                'size': 11,
+                'color': 'FF000000',
+                'color_type': 'rgb',
+                'color_value': 'FF000000',
+                'color_tint': None,
+                'family': None,
+                'charset': None,
+                'scheme': None,
+                'bold': False,
+                'italic': False,
+                'underline': False,
+                'strikethrough': False
+            }
         
         # Default fills
-        self._workbook._fill_styles[0] = {  # No fill
-            'pattern_type': 'none',
-            'fg_color': 'FFFFFFFF',
-            'bg_color': 'FFFFFFFF'
-        }
-        self._workbook._fill_styles[1] = {  # Gray pattern
-            'pattern_type': 'gray125',
-            'fg_color': 'FFFFFFFF',
-            'bg_color': 'FFFFFFFF'
-        }
+        if 0 not in self._workbook._fill_styles:
+            self._workbook._fill_styles[0] = {  # No fill
+                'pattern_type': 'none',
+                'fg_color': 'FFFFFFFF',
+                'bg_color': 'FFFFFFFF',
+                'fg_color_type': 'rgb',
+                'fg_color_value': 'FFFFFFFF',
+                'fg_color_tint': None,
+                'bg_color_type': 'rgb',
+                'bg_color_value': 'FFFFFFFF',
+                'bg_color_tint': None,
+            }
+        if 1 not in self._workbook._fill_styles:
+            self._workbook._fill_styles[1] = {  # Gray pattern
+                'pattern_type': 'gray125',
+                'fg_color': 'FFFFFFFF',
+                'bg_color': 'FFFFFFFF',
+                'fg_color_type': 'rgb',
+                'fg_color_value': 'FFFFFFFF',
+                'fg_color_tint': None,
+                'bg_color_type': 'rgb',
+                'bg_color_value': 'FFFFFFFF',
+                'bg_color_tint': None,
+            }
         
         # Default borders
-        self._workbook._border_styles[0] = {
-            'top': {'style': 'none', 'color': 'FF000000'},
-            'bottom': {'style': 'none', 'color': 'FF000000'},
-            'left': {'style': 'none', 'color': 'FF000000'},
-            'right': {'style': 'none', 'color': 'FF000000'}
-        }
+        if 0 not in self._workbook._border_styles:
+            self._workbook._border_styles[0] = {
+                'top': {'style': 'none', 'color': 'FF000000'},
+                'bottom': {'style': 'none', 'color': 'FF000000'},
+                'left': {'style': 'none', 'color': 'FF000000'},
+                'right': {'style': 'none', 'color': 'FF000000'}
+            }
 
         # Default protection (locked=True, hidden=False)
-        self._workbook._protection_styles[0] = {
-            'locked': True,
-            'hidden': False
-        }
+        if 0 not in self._workbook._protection_styles:
+            self._workbook._protection_styles[0] = {
+                'locked': True,
+                'hidden': False
+            }
         
         # Default alignment (general/bottom) - index 0
-        self._workbook._alignment_styles[0] = {
-            'horizontal': 'general',
-            'vertical': 'bottom',
-            'wrap_text': False,
-            'indent': 0,
-            'text_rotation': 0,
-            'shrink_to_fit': False,
-            'reading_order': 0,
-            'relative_indent': 0
-        }
+        if 0 not in self._workbook._alignment_styles:
+            self._workbook._alignment_styles[0] = {
+                'horizontal': 'general',
+                'vertical': 'bottom',
+                'wrap_text': False,
+                'indent': 0,
+                'text_rotation': 0,
+                'shrink_to_fit': False,
+                'reading_order': 0,
+                'relative_indent': 0
+            }
     
     def get_or_create_font_style(self, font):
         """Gets or creates a font style index."""
@@ -1020,11 +2094,23 @@ class XMLSaver:
     
     def get_or_create_fill_style(self, fill):
         """Gets or creates a fill style index."""
+        fg_color_type = getattr(fill, '_fg_color_type', 'rgb')
+        fg_color_value = getattr(fill, '_fg_color_value', fill.foreground_color)
+        fg_color_tint = getattr(fill, '_fg_color_tint', None)
+        bg_color_type = getattr(fill, '_bg_color_type', 'rgb')
+        bg_color_value = getattr(fill, '_bg_color_value', fill.background_color)
+        bg_color_tint = getattr(fill, '_bg_color_tint', None)
         # Check if this fill already exists by comparing with existing fills
         for idx, fill_data in self._workbook._fill_styles.items():
             if (fill_data['pattern_type'] == fill.pattern_type and
                 fill_data['fg_color'] == fill.foreground_color and
-                fill_data['bg_color'] == fill.background_color):
+                fill_data['bg_color'] == fill.background_color and
+                fill_data.get('fg_color_type', 'rgb') == fg_color_type and
+                fill_data.get('fg_color_value', fill_data.get('fg_color')) == fg_color_value and
+                fill_data.get('fg_color_tint') == fg_color_tint and
+                fill_data.get('bg_color_type', 'rgb') == bg_color_type and
+                fill_data.get('bg_color_value', fill_data.get('bg_color')) == bg_color_value and
+                fill_data.get('bg_color_tint') == bg_color_tint):
                 return idx
         
         # Create new fill style
@@ -1032,7 +2118,13 @@ class XMLSaver:
         self._workbook._fill_styles[new_idx] = {
             'pattern_type': fill.pattern_type,
             'fg_color': fill.foreground_color,
-            'bg_color': fill.background_color
+            'bg_color': fill.background_color,
+            'fg_color_type': fg_color_type,
+            'fg_color_value': fg_color_value,
+            'fg_color_tint': fg_color_tint,
+            'bg_color_type': bg_color_type,
+            'bg_color_value': bg_color_value,
+            'bg_color_tint': bg_color_tint,
         }
         return new_idx
     
@@ -1173,9 +2265,15 @@ class XMLSaver:
 
         key = (font_idx, fill_idx, border_idx, num_fmt_idx, alignment_idx, protection_idx)
         if key not in self._workbook._cell_styles:
-            # The cellXfs collection has a default xf at index 0, so custom xfs start at index 1
-            # We store the actual xf index (starting from 1) in _cell_styles dictionary
-            self._workbook._cell_styles[key] = len(self._workbook._cell_styles) + 1
+            # Allocate the next free xf index across both style maps.
+            used_indices = set(self._workbook._cell_styles.values())
+            if hasattr(self._workbook, '_cell_xf_by_index') and self._workbook._cell_xf_by_index:
+                used_indices.update(self._workbook._cell_xf_by_index.keys())
+            next_idx = (max(used_indices) + 1) if used_indices else 1
+            self._workbook._cell_styles[key] = next_idx
+            if not hasattr(self._workbook, '_cell_xf_by_index'):
+                self._workbook._cell_xf_by_index = {}
+            self._workbook._cell_xf_by_index[next_idx] = key
         return self._workbook._cell_styles[key]
 
     def _write_core_properties_xml(self, zipf):

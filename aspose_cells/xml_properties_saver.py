@@ -373,6 +373,8 @@ class WorksheetPropertiesXMLWriter:
         if format_props.default_col_width is not None:
             attrs.append(f'defaultColWidth="{format_props.default_col_width}"')
         attrs.append(f'defaultRowHeight="{format_props.default_row_height}"')
+        if format_props.dy_descent is not None:
+            attrs.append(f'x14ac:dyDescent="{format_props.dy_descent}"')
         if format_props.custom_height:
             attrs.append('customHeight="1"')
         if format_props.zero_height:

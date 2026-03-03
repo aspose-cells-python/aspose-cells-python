@@ -50,8 +50,24 @@ from .json_handler import (
     JsonSaveOptions,
     save_workbook_as_json
 )
+from .page_break import HorizontalPageBreakCollection, VerticalPageBreakCollection
+from .chart import ChartType, Chart, ChartCollection, NSeries, ChartSeries, ChartAxis, ChartErrorBars, ChartView3D
+from .picture import Picture, PictureCollection
+from .shape import (
+    MsoDrawingType, FillType, MsoLineDashStyle,
+    TextAlignmentType, TextAnchorType,
+    MsoFillFormat, MsoLineFormat, ShapeFont,
+    Shape, ShapeCollection,
+)
+from .table import (
+    TableStyleInfo, TableColumn, Table, TableCollection,
+)
+from .sparkline import (
+    SparklineType, SparklineEmptyCells, Sparkline,
+    SparklineGroup, SparklineGroupCollection,
+)
 
-__version__ = "26.2.2"
+__version__ = "26.3.0"
 __all__ = [
     "Workbook",
     "SaveFormat",
@@ -85,4 +101,35 @@ __all__ = [
     "JsonHandler",
     "JsonSaveOptions",
     "save_workbook_as_json",
+    "HorizontalPageBreakCollection",
+    "VerticalPageBreakCollection",
+    "ChartType",
+    "Chart",
+    "ChartCollection",
+    "NSeries",
+    "ChartSeries",
+    "ChartAxis",
+    "ChartErrorBars",
+    "ChartView3D",
+    "Picture",
+    "PictureCollection",
+    "MsoDrawingType",
+    "FillType",
+    "MsoLineDashStyle",
+    "TextAlignmentType",
+    "TextAnchorType",
+    "MsoFillFormat",
+    "MsoLineFormat",
+    "ShapeFont",
+    "Shape",
+    "ShapeCollection",
+    "TableStyleInfo",
+    "TableColumn",
+    "Table",
+    "TableCollection",
+    "SparklineType",
+    "SparklineEmptyCells",
+    "Sparkline",
+    "SparklineGroup",
+    "SparklineGroupCollection",
 ]

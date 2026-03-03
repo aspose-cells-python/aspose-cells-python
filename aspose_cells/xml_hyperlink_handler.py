@@ -190,12 +190,12 @@ class HyperlinkXMLSaver:
         """
         attrs = [f'ref="{self._escape_xml(hyperlink.range)}"']
 
-        # Add r:id for external links
+        # Add r:id for external links.
+        # Always re-assign from the current counter (reset before each worksheet)
+        # so the ID never conflicts with drawing/comments/extra-rels IDs.
         if hyperlink.address:
-            if not hasattr(hyperlink, '_relationship_id') or not hyperlink._relationship_id:
-                # Assign new relationship ID
-                hyperlink._relationship_id = f'rId{self._next_rel_id}'
-                self._next_rel_id += 1
+            hyperlink._relationship_id = f'rId{self._next_rel_id}'
+            self._next_rel_id += 1
             attrs.append(f'r:id="{hyperlink._relationship_id}"')
 
         # Add location for internal links
@@ -239,13 +239,13 @@ class HyperlinkXMLSaver:
 
         return relationships
 
-    def reset_relationship_counter(self):
+    def reset_relationship_counter(self, start_rel_id=1):
         """
         Resets the relationship ID counter.
 
         Should be called before processing each worksheet.
         """
-        self._next_rel_id = 1
+        self._next_rel_id = int(start_rel_id)
 
     def _escape_xml(self, text):
         """
