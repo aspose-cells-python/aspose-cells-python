@@ -11,10 +11,10 @@ import sys
 import zipfile
 import xml.etree.ElementTree as ET
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from aspose_cells import Workbook
+from aspose.cells_foss import Workbook
 
 
 class TestHyperlinks(unittest.TestCase):
@@ -81,7 +81,7 @@ class TestHyperlinks(unittest.TestCase):
         wb = Workbook()
         ws1 = wb.worksheets[0]
         ws1.name = "Sheet1"
-        from aspose_cells import Worksheet
+        from aspose.cells_foss import Worksheet
         ws2 = Worksheet("Sheet2")
         wb.worksheets.append(ws2)
 

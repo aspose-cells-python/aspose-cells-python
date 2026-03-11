@@ -2,10 +2,10 @@ import unittest
 import os
 import sys
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook, Worksheet, Cell, Style, Font
+from aspose.cells_foss import Workbook, Worksheet, Cell, Style, Font
 
 
 class TestFontSettings(unittest.TestCase):

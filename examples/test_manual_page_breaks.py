@@ -7,7 +7,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from aspose_cells import Workbook
+from aspose.cells_foss import Workbook
 
 
 class TestManualPageBreaks(unittest.TestCase):

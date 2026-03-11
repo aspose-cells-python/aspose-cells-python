@@ -3,10 +3,10 @@ import os
 import sys
 import tempfile
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook, Cell
+from aspose.cells_foss import Workbook, Cell
 
 
 class TestCellValues(unittest.TestCase):

@@ -12,11 +12,11 @@ import os
 import sys
 import json
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook, SaveFormat
-from aspose_cells.json_handler import JsonHandler, JsonSaveOptions
+from aspose.cells_foss import Workbook, SaveFormat
+from aspose.cells_foss.json_handler import JsonHandler, JsonSaveOptions
 
 
 class TestXLSXToJSONConversion(unittest.TestCase):

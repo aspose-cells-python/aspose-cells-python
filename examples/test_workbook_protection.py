@@ -12,10 +12,10 @@ import unittest
 import os
 import sys
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from aspose_cells import Workbook
+from aspose.cells_foss import Workbook
 
 
 class TestWorkbookProtection(unittest.TestCase):

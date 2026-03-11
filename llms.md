@@ -1,17 +1,17 @@
-# aspose-cells-foss - Complete Reference
+# Aspose.Cells FOSS - Complete Reference
 
-**aspose-cells-foss** is a pure-Python library for creating, reading, and modifying Excel `.xlsx` files without Microsoft Excel. Its public API mirrors [Aspose.Cells for .NET](https://reference.aspose.com/cells/net/), making it straightforward to port .NET code to Python.
+**Aspose.Cells-FOSS-for-Python** is a pure-Python library for creating, reading, and modifying Excel `.xlsx` files without Microsoft Excel. Its public API mirrors [Aspose.Cells for .NET](https://reference.aspose.com/cells/net/), making it straightforward to port .NET code to Python.
 
 ## Installation
 
 - Install via `pip install aspose-cells-foss`
-- Import as `from aspose_cells import Workbook`
+- Import as `from aspose.cells_foss import Workbook`
 - Requires Python 3.7+; runtime dependencies are `pycryptodome` and `olefile`
 
 ## Core Usage
 
 ```python
-from aspose_cells import Workbook
+from aspose.cells_foss import Workbook
 
 wb = Workbook()                      # new workbook
 wb = Workbook("input.xlsx")          # open existing file
@@ -63,7 +63,7 @@ style.font.color = "FF0000"
 style.horizontal_alignment = "center"
 style.number_format = "#,##0.00"
 style.borders["bottom"].line_style = "thin"
-cell.set_style(style)
+cell.apply_style(style)
 ```
 
 ## Save Formats
@@ -77,7 +77,7 @@ cell.set_style(style)
 - `SaveFormat.JSON` — JSON array
 
 ```python
-from aspose_cells import Workbook, SaveFormat
+from aspose.cells_foss import Workbook, SaveFormat
 wb.save("out.csv", SaveFormat.CSV)
 ```
 
@@ -86,7 +86,7 @@ wb.save("out.csv", SaveFormat.CSV)
 16 chart types supported. Access via `worksheet.charts`.
 
 ```python
-from aspose_cells import Workbook, ChartType
+from aspose.cells_foss import Workbook, ChartType
 
 ws = wb.worksheets[0]
 chart = ws.charts.add_line(upper_left_row=0, upper_left_col=4,
@@ -118,7 +118,7 @@ pic.hyperlink_url = "https://example.com"  # optional click hyperlink
 30+ preset shapes via `MsoDrawingType` enum.
 
 ```python
-from aspose_cells import MsoDrawingType, FillType, TextAlignmentType, TextAnchorType
+from aspose.cells_foss import MsoDrawingType, FillType, TextAlignmentType, TextAnchorType
 
 shape = ws.shapes.add(MsoDrawingType.ROUNDED_RECTANGLE, 1, 1, 5, 5)
 shape.text = "Hello"
@@ -138,7 +138,7 @@ Available shape types include: `RECTANGLE`, `ROUNDED_RECTANGLE`, `OVAL`, `DIAMON
 Mini-charts embedded inside cells. Three types: `LINE`, `COLUMN`, `WIN_LOSS`.
 
 ```python
-from aspose_cells import SparklineType
+from aspose.cells_foss import SparklineType
 
 group = ws.sparkline_groups.add(
     sparkline_type=SparklineType.LINE,
@@ -170,12 +170,11 @@ table = ws.tables.add_with_range("A1:D10", name="SalesTable")
 ## Data Validation
 
 ```python
-from aspose_cells import DataValidationType
+from aspose.cells_foss import DataValidationType
 
-v = ws.data_validations.add()
+v = ws.data_validations.add("A1:A10")
 v.type = DataValidationType.LIST
 v.formula1 = '"Option1,Option2,Option3"'
-v.add_area("A1:A10")
 ```
 
 ## Conditional Formatting

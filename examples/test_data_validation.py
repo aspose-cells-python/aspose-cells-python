@@ -11,7 +11,7 @@ import unittest
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import (
+from aspose.cells_foss import (
     Workbook, DataValidation, DataValidationCollection,
     DataValidationType, DataValidationOperator,
     DataValidationAlertStyle, DataValidationImeMode

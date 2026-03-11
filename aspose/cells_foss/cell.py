@@ -434,6 +434,21 @@ class Cell:
         """
         return self.data_type == 'datetime'
     
+    def put_value(self, value):
+        """
+        Sets the value of the cell. Alias for the value setter, provided for
+        compatibility with Aspose.Cells for .NET.
+
+        Args:
+            value: The value to set. Can be None, int, float, str, bool,
+                   datetime, date, or time.
+
+        Examples:
+            >>> cell.put_value("Hello")
+            >>> cell.put_value(42)
+        """
+        self._value = value
+
     # String representation
     
     def __str__(self):

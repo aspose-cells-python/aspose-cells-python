@@ -15,11 +15,11 @@ import os
 import sys
 from datetime import datetime, date, time
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook
-from aspose_cells.markdown_handler import MarkdownHandler, MarkdownSaveOptions
+from aspose.cells_foss import Workbook
+from aspose.cells_foss.markdown_handler import MarkdownHandler, MarkdownSaveOptions
 
 
 class TestXLSXToMarkdownConversion(unittest.TestCase):

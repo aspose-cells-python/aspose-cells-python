@@ -2,10 +2,10 @@ import unittest
 import os
 import sys
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook, Worksheet, Cell, Style
+from aspose.cells_foss import Workbook, Worksheet, Cell, Style
 
 
 class TestBorderSettings(unittest.TestCase):
@@ -33,23 +33,23 @@ class TestBorderSettings(unittest.TestCase):
         # Test setting border colors for individual sides
         cell1 = Cell("Red Top Border")
         cell1.style.set_border_color('top', 'FFFF0000')
-        self.worksheet["A1"] = cell1
+        self.worksheet.cells["A1"] = cell1
         
         cell2 = Cell("Blue Bottom Border")
         cell2.style.set_border_color('bottom', 'FF0000FF')
-        self.worksheet["A2"] = cell2
+        self.worksheet.cells["A2"] = cell2
         
         cell3 = Cell("Green Left Border")
         cell3.style.set_border_color('left', 'FF00FF00')
-        self.worksheet["A3"] = cell3
+        self.worksheet.cells["A3"] = cell3
         
         cell4 = Cell("Purple Right Border")
         cell4.style.set_border_color('right', 'FF800080')
-        self.worksheet["A4"] = cell4
+        self.worksheet.cells["A4"] = cell4
         
         cell5 = Cell("All Red Borders")
         cell5.style.set_border_color('all', 'FFFF0000')
-        self.worksheet["A5"] = cell5
+        self.worksheet.cells["A5"] = cell5
     
     def test_border_style_settings(self):
         """Test border line style settings."""
@@ -59,7 +59,7 @@ class TestBorderSettings(unittest.TestCase):
         for i, style in enumerate(styles):
             cell = Cell(f"{style.capitalize()} Border")
             cell.style.set_border_style('all', style)
-            self.worksheet[f"A{i+1}"] = cell
+            self.worksheet.cells[f"A{i+1}"] = cell
     
     def test_border_weight_settings(self):
         """Test border line weight settings."""
@@ -69,30 +69,30 @@ class TestBorderSettings(unittest.TestCase):
         for i, weight in enumerate(weights):
             cell = Cell(f"Weight {weight}")
             cell.style.set_border_weight('all', weight)
-            self.worksheet[f"A{i+1}"] = cell
+            self.worksheet.cells[f"A{i+1}"] = cell
     
     def test_complete_border_settings(self):
         """Test complete border settings with all properties."""
         # Test setting all border properties at once
         cell1 = Cell("Thick Black All")
         cell1.style.set_border('all', line_style='thick', color='FF000000', weight=3)
-        self.worksheet["A1"] = cell1
+        self.worksheet.cells["A1"] = cell1
         
         cell2 = Cell("Thin Red Top")
         cell2.style.set_border('top', line_style='thin', color='FFFF0000', weight=1)
-        self.worksheet["A2"] = cell2
+        self.worksheet.cells["A2"] = cell2
         
         cell3 = Cell("Medium Blue Bottom")
         cell3.style.set_border('bottom', line_style='medium', color='FF0000FF', weight=2)
-        self.worksheet["A3"] = cell3
+        self.worksheet.cells["A3"] = cell3
         
         cell4 = Cell("Dashed Green Left")
         cell4.style.set_border('left', line_style='dashed', color='FF00FF00', weight=1)
-        self.worksheet["A4"] = cell4
+        self.worksheet.cells["A4"] = cell4
         
         cell5 = Cell("Dotted Purple Right")
         cell5.style.set_border('right', line_style='dotted', color='FF800080', weight=1)
-        self.worksheet["A5"] = cell5
+        self.worksheet.cells["A5"] = cell5
     
     def test_mixed_border_settings(self):
         """Test mixed border settings on different sides."""
@@ -104,11 +104,11 @@ class TestBorderSettings(unittest.TestCase):
         cell.style.set_border('left', line_style='thin', color='FF00FF00', weight=1)
         cell.style.set_border('right', line_style='dashed', color='FF800080', weight=2)
         
-        self.worksheet["A1"] = cell
+        self.worksheet.cells["A1"] = cell
     
     def test_border_default_values(self):
         """Test border default values."""
-        from aspose_cells.style import Border, Borders
+        from aspose.cells_foss.style import Border, Borders
         
         # Test default border values
         border = Border()
@@ -222,7 +222,7 @@ class TestBorderSettings(unittest.TestCase):
                     weight=border_props['weight']
                 )
             
-            self.worksheet[f"A{i+1}"] = cell
+            self.worksheet.cells[f"A{i+1}"] = cell
     
     def test_save_border_settings(self):
         """Test saving border settings to file."""
@@ -256,8 +256,7 @@ class TestBorderSettings(unittest.TestCase):
         self.workbook.save(output_path)
         
         # Load the file back
-        loaded_workbook = Workbook()
-        loaded_workbook.load(output_path)
+        loaded_workbook = Workbook(output_path)
         loaded_worksheet = loaded_workbook.worksheets[0]
         
         # Verify that the file was loaded (basic verification)

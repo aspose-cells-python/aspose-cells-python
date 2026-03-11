@@ -13,11 +13,11 @@ import sys
 import zipfile
 import re
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook
-from aspose_cells import SparklineType, SparklineEmptyCells
+from aspose.cells_foss import Workbook
+from aspose.cells_foss import SparklineType, SparklineEmptyCells
 
 
 def test_create_line_sparklines():

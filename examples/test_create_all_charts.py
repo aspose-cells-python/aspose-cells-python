@@ -24,10 +24,10 @@ import os
 import sys
 import pytest
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aspose_cells import Workbook, ChartType
+from aspose.cells_foss import Workbook, ChartType
 
 
 def test_create_line_chart():

@@ -9,10 +9,10 @@ import unittest
 import os
 import sys
 
-# Add parent directory to path to import aspose_cells
+# Add parent directory to path to import aspose.cells_foss
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from aspose_cells import (
+from aspose.cells_foss import (
     Workbook,
     AgileEncryptionParameters,
     CipherAlgorithm,
@@ -316,7 +316,7 @@ class TestEncryption(unittest.TestCase):
             ws1.cells[f'D{i}'].value = f"=B{i}*C{i}"
 
         # Second worksheet
-        from aspose_cells import Worksheet
+        from aspose.cells_foss import Worksheet
         ws2 = Worksheet("Summary")
         wb.worksheets.append(ws2)
         ws2.cells['A1'].value = "Total Products"

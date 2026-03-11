@@ -273,7 +273,12 @@ class CSVHandler:
         if options is None:
             options = CSVLoadOptions()
 
-        with open(file_path, 'r', encoding=options.encoding, newline='') as f:
+        encoding = options.encoding
+        with open(file_path, 'rb') as raw:
+            if raw.read(3) == b'\xef\xbb\xbf':
+                encoding = 'utf-8-sig'
+
+        with open(file_path, 'r', encoding=encoding, newline='') as f:
             CSVHandler._load_csv_from_reader(workbook, f, options)
 
     @staticmethod
