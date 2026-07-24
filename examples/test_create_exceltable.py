@@ -16,6 +16,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook
+from examples.output_path_helper import examples_output_path, ensure_examples_output_dir
 
 
 def test_create_excel_with_table():
@@ -23,9 +24,9 @@ def test_create_excel_with_table():
     Create a new Excel file with dummy data and add an Excel table.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/exceltable", exist_ok=True)
+    ensure_examples_output_dir("exceltable")
     
-    output_path = "tests/outputfiles/exceltable/test_create_table.xlsx"
+    output_path = examples_output_path("exceltable", "example_test_create_table.xlsx")
     
     # Create a new workbook
     print("Creating new workbook...")
@@ -142,9 +143,9 @@ def test_create_multiple_tables():
     Create a new Excel file with multiple tables in different ranges.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/exceltable", exist_ok=True)
+    ensure_examples_output_dir("exceltable")
     
-    output_path = "tests/outputfiles/exceltable/test_create_multiple_tables.xlsx"
+    output_path = examples_output_path("exceltable", "example_test_create_multiple_tables.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook with multiple tables...")

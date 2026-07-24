@@ -1,1 +1,1 @@
-# Namespace package — do not remove.
+# Namespace package - do not remove.

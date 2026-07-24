@@ -24,8 +24,8 @@ class TestMergeCells(unittest.TestCase):
         os.makedirs(self.test_dir, exist_ok=True)
 
     def test_merge_then_unmerge_roundtrip(self):
-        merged_path = os.path.join(self.test_dir, "merge_cells_merged.xlsx")
-        unmerged_path = os.path.join(self.test_dir, "merge_cells_unmerged.xlsx")
+        merged_path = os.path.join(self.test_dir, "example_merge_cells_merged.xlsx")
+        unmerged_path = os.path.join(self.test_dir, "example_merge_cells_unmerged.xlsx")
 
         # Create workbook with dummy data
         wb = Workbook()

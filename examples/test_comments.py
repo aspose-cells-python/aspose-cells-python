@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Cell
+from examples.output_path_helper import examples_output_path
 
 
 class TestComments(unittest.TestCase):
@@ -136,10 +137,7 @@ class TestComments(unittest.TestCase):
             self.worksheet.cells[cell_ref] = cell
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_comments.xlsx'
-        
-        # Ensure outputfiles directory exists
-        os.makedirs('outputfiles', exist_ok=True)
+        output_path = examples_output_path('example_test_comments.xlsx')
         
         print(f"Saving workbook to {output_path}...")
         self.workbook.save(output_path)
@@ -163,7 +161,7 @@ class TestComments(unittest.TestCase):
         
         # Load the file back and verify comments
         print("Loading file back and verifying comments...")
-        loaded_workbook = Workbook('outputfiles/test_comments.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_comments.xlsx'))
         loaded_worksheet = loaded_workbook.worksheets[0]
         
         # Verify all comments are preserved
@@ -211,7 +209,7 @@ class TestComments(unittest.TestCase):
         comment_test_cases = self.test_create_comments()
         
         # Load the file
-        loaded_workbook = Workbook('outputfiles/test_comments.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_comments.xlsx'))
         loaded_worksheet = loaded_workbook.worksheets[0]
         
         # Modify all comments
@@ -242,7 +240,7 @@ class TestComments(unittest.TestCase):
             print(f"  {cell_ref}: Modified comment")
         
         # Save to a new file
-        output_path = 'outputfiles/test_comments_modified.xlsx'
+        output_path = examples_output_path('example_test_comments_modified.xlsx')
         
         print(f"Saving modified workbook to {output_path}...")
         loaded_workbook.save(output_path)
@@ -266,7 +264,7 @@ class TestComments(unittest.TestCase):
         
         # Load the modified file
         print("Loading modified file and verifying comments...")
-        loaded_workbook = Workbook('outputfiles/test_comments_modified.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_comments_modified.xlsx'))
         loaded_worksheet = loaded_workbook.worksheets[0]
         
         # Verify all modified comments are preserved

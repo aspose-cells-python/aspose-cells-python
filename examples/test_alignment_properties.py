@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Cell
+from examples.output_path_helper import examples_output_path
 
 
 class TestAlignmentProperties(unittest.TestCase):
@@ -490,10 +491,7 @@ class TestAlignmentProperties(unittest.TestCase):
             self.worksheet.cells[cell_ref] = cell
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_alignment_properties.xlsx'
-        
-        # Ensure outputfiles directory exists
-        os.makedirs('outputfiles', exist_ok=True)
+        output_path = examples_output_path('example_test_alignment_properties.xlsx')
         
         print(f"Saving workbook to {output_path}...")
         self.workbook.save(output_path)
@@ -517,7 +515,7 @@ class TestAlignmentProperties(unittest.TestCase):
         
         # Load the file back and verify alignment settings
         print("Loading file back and verifying alignment settings...")
-        loaded_workbook = Workbook('outputfiles/test_alignment_properties.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_alignment_properties.xlsx'))
         loaded_worksheet = loaded_workbook.worksheets[0]
         
         # Verify all alignment settings are preserved

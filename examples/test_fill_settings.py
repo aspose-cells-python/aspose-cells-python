@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Cell, Style
+from examples.output_path_helper import examples_output_path
 
 
 class TestFillSettings(unittest.TestCase):
@@ -278,7 +279,7 @@ class TestFillSettings(unittest.TestCase):
             self.worksheet.cells[cell_ref] = cell
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_fill_settings.xlsx'
+        output_path = examples_output_path('example_test_fill_settings.xlsx')
         
         # Ensure outputfiles directory exists
         os.makedirs('outputfiles', exist_ok=True)

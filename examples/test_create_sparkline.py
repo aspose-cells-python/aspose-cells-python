@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook
 from aspose.cells_foss import SparklineType, SparklineEmptyCells
+from examples.output_path_helper import examples_output_path, ensure_examples_output_dir
 
 
 def test_create_line_sparklines():
@@ -25,9 +26,9 @@ def test_create_line_sparklines():
     Create a new Excel file with dummy data and add line sparklines.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createsparkline", exist_ok=True)
+    ensure_examples_output_dir("createsparkline")
     
-    output_path = "tests/outputfiles/createsparkline/test_create_line_sparklines.xlsx"
+    output_path = examples_output_path("createsparkline", "example_test_create_line_sparklines.xlsx")
     
     # Create a new workbook
     print("Creating new workbook for line sparklines...")
@@ -140,9 +141,9 @@ def test_create_column_sparklines():
     Create a new Excel file with dummy data and add column sparklines.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createsparkline", exist_ok=True)
+    ensure_examples_output_dir("createsparkline")
     
-    output_path = "tests/outputfiles/createsparkline/test_create_column_sparklines.xlsx"
+    output_path = examples_output_path("createsparkline", "example_test_create_column_sparklines.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook for column sparklines...")
@@ -233,9 +234,9 @@ def test_create_win_loss_sparklines():
     Create a new Excel file with dummy data and add win-loss sparklines.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createsparkline", exist_ok=True)
+    ensure_examples_output_dir("createsparkline")
     
-    output_path = "tests/outputfiles/createsparkline/test_create_win_loss_sparklines.xlsx"
+    output_path = examples_output_path("createsparkline", "example_test_create_win_loss_sparklines.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook for win-loss sparklines...")
@@ -323,9 +324,9 @@ def test_create_multiple_sparkline_groups():
     Create a new Excel file with multiple sparkline groups of different types.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createsparkline", exist_ok=True)
+    ensure_examples_output_dir("createsparkline")
     
-    output_path = "tests/outputfiles/createsparkline/test_create_multiple_sparkline_groups.xlsx"
+    output_path = examples_output_path("createsparkline", "example_test_create_multiple_sparkline_groups.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook for multiple sparkline groups...")
@@ -444,9 +445,9 @@ def test_create_sparkline_with_empty_cells():
     Create a new Excel file with sparklines that handle empty cells.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createsparkline", exist_ok=True)
+    ensure_examples_output_dir("createsparkline")
     
-    output_path = "tests/outputfiles/createsparkline/test_create_sparkline_with_empty_cells.xlsx"
+    output_path = examples_output_path("createsparkline", "example_test_create_sparkline_with_empty_cells.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook for sparklines with empty cells...")

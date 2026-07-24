@@ -130,110 +130,119 @@ class ChartXmlLoader:
             drawing_rel_types=drawing_rel_types,
         )
 
-        for anchor in drawing_root.findall('xdr:twoCellAnchor', namespaces=self._xdr_ns):
-            chart_elem = anchor.find('.//c:chart', namespaces=self._xdr_ns)
-            is_chart_ex = False
-            if chart_elem is None:
-                chart_elem = anchor.find('.//cx:chart', namespaces=self._xdr_ns)
-                is_chart_ex = chart_elem is not None
-            if chart_elem is None:
-                continue
+        # oneCellAnchor holds a chart just as validly as twoCellAnchor; skipping it
+        # drops the chart while its rel stays in the preserved drawingN.xml.rels.
+        anchors = []
+        anchors.extend(drawing_root.findall('xdr:twoCellAnchor', namespaces=self._xdr_ns))
+        anchors.extend(drawing_root.findall('xdr:oneCellAnchor', namespaces=self._xdr_ns))
+        for anchor in anchors:
+            # One anchor can hold several graphicFrames -- charts grouped in an
+            # xdr:grpSp all share a single anchor. Every c:chart/cx:chart below it
+            # must be loaded: a chart we skip is still referenced by the preserved
+            # drawingN.xml.rels, leaving a rel pointing at a part never written.
+            chart_elems = [
+                (el, False) for el in anchor.findall('.//c:chart', namespaces=self._xdr_ns)
+            ]
+            chart_elems += [
+                (el, True) for el in anchor.findall('.//cx:chart', namespaces=self._xdr_ns)
+            ]
+            for chart_elem, is_chart_ex in chart_elems:
+                chart_rel_id = chart_elem.get(self._r_attr)
+                if not chart_rel_id:
+                    continue
 
-            chart_rel_id = chart_elem.get(self._r_attr)
-            if not chart_rel_id:
-                continue
+                chart_target = drawing_rels.get(chart_rel_id)
+                if not chart_target:
+                    continue
 
-            chart_target = drawing_rels.get(chart_rel_id)
-            if not chart_target:
-                continue
-
-            chart_path = self._resolve_target(drawing_path, chart_target)
-            chart_bytes = self._try_read_bytes(zipf, chart_path)
-            if chart_bytes is None:
-                continue
-            try:
-                chart_root = ET.fromstring(chart_bytes)
-            except ET.ParseError:
-                continue
-            if chart_root is None:
-                continue
-
-            if not is_chart_ex:
-                rel_type = drawing_rel_types.get(chart_rel_id, "")
-                is_chart_ex = rel_type.endswith('/chartEx')
-
-            chart_type = None
-            plot_area = None
-            is_3d = False
-
-            if is_chart_ex:
-                plot_chart = chart_root.find('.//cx:plotAreaRegion', namespaces=self._cx_ns)
-                if plot_chart is not None:
-                    chart_type = self._detect_chart_ex_type(plot_chart)
-            else:
-                plot_area = chart_root.find('.//c:chart/c:plotArea', namespaces=self._c_ns)
-                if plot_area is not None:
-                    chart_type, is_3d = self._detect_standard_chart_type(plot_area)
-
-            if chart_type is None:
-                continue
-
-            from_col = self._get_anchor_int(anchor, 'xdr:from/xdr:col')
-            from_row = self._get_anchor_int(anchor, 'xdr:from/xdr:row')
-            to_col = self._get_anchor_int(anchor, 'xdr:to/xdr:col')
-            to_row = self._get_anchor_int(anchor, 'xdr:to/xdr:row')
-
-            if any(v is None for v in (from_col, from_row, to_col, to_row)):
-                continue
-
-            chart_idx = worksheet.charts.add(chart_type, from_row, from_col, to_row, to_col)
-            chart = worksheet.charts[chart_idx]
-            chart._suspend_dirty_tracking = True
-            chart._upper_left_column_offset = self._get_anchor_int(anchor, 'xdr:from/xdr:colOff', default=0)
-            chart._upper_left_row_offset = self._get_anchor_int(anchor, 'xdr:from/xdr:rowOff', default=0)
-            chart._lower_right_column_offset = self._get_anchor_int(anchor, 'xdr:to/xdr:colOff', default=0)
-            chart._lower_right_row_offset = self._get_anchor_int(anchor, 'xdr:to/xdr:rowOff', default=0)
-            chart._is_3d = is_3d
-            chart._source_chart_xml = chart_bytes
-            chart._source_chart_rels_xml = None
-            chart._source_chart_extra_parts = []
-            chart._source_chart_part_path = chart_path
-            chart._source_chart_content_type = None
-            if content_type_overrides:
-                chart._source_chart_content_type = content_type_overrides.get(f'/{chart_path}')
-            chart._source_is_chart_ex = is_chart_ex
-            chart._source_chart_part_index = None
-            chart_match = re.search(r'chart(\d+)\.xml$', chart_path)
-            if chart_match:
-                chart._source_chart_part_index = int(chart_match.group(1))
-
-            chart_rels_path = self._rels_path_for_part(chart_path)
-            chart_rels_bytes = self._try_read_bytes(zipf, chart_rels_path)
-            if chart_rels_bytes is not None:
-                chart._source_chart_rels_xml = chart_rels_bytes
+                chart_path = self._resolve_target(drawing_path, chart_target)
+                chart_bytes = self._try_read_bytes(zipf, chart_path)
+                if chart_bytes is None:
+                    continue
                 try:
-                    chart_rels_root = ET.fromstring(chart_rels_bytes)
-                    for rel in chart_rels_root.findall('rel:Relationship', namespaces=self._rels_ns):
-                        target = rel.get('Target')
-                        if not target:
-                            continue
-                        part_path = self._resolve_target(chart_path, target)
-                        part_bytes = self._try_read_bytes(zipf, part_path)
-                        if part_bytes is None:
-                            continue
-                        content_type = None
-                        if content_type_overrides:
-                            content_type = content_type_overrides.get(f'/{part_path}')
-                        chart._source_chart_extra_parts.append((part_path, part_bytes, content_type))
+                    chart_root = ET.fromstring(chart_bytes)
                 except ET.ParseError:
-                    pass
+                    continue
+                if chart_root is None:
+                    continue
 
-            if is_chart_ex:
-                plot_chart = chart_root.find('.//cx:plotAreaRegion', namespaces=self._cx_ns)
-                self._load_chart_ex_settings(chart, chart_root, plot_chart, worksheet)
-            else:
-                self._load_chart_settings(chart, chart_root, plot_area, is_3d)
-            chart._suspend_dirty_tracking = False
+                if not is_chart_ex:
+                    rel_type = drawing_rel_types.get(chart_rel_id, "")
+                    is_chart_ex = rel_type.endswith('/chartEx')
+
+                chart_type = None
+                plot_area = None
+                is_3d = False
+
+                if is_chart_ex:
+                    plot_chart = chart_root.find('.//cx:plotAreaRegion', namespaces=self._cx_ns)
+                    if plot_chart is not None:
+                        chart_type = self._detect_chart_ex_type(plot_chart)
+                else:
+                    plot_area = chart_root.find('.//c:chart/c:plotArea', namespaces=self._c_ns)
+                    if plot_area is not None:
+                        chart_type, is_3d = self._detect_standard_chart_type(plot_area)
+
+                if chart_type is None:
+                    continue
+
+                from_col = self._get_anchor_int(anchor, 'xdr:from/xdr:col')
+                from_row = self._get_anchor_int(anchor, 'xdr:from/xdr:row')
+                if from_col is None or from_row is None:
+                    continue
+                # oneCellAnchor sizes itself with xdr:ext instead of xdr:to, so fall
+                # back to a one-cell span the way the picture loader does.
+                to_col = self._get_anchor_int(anchor, 'xdr:to/xdr:col', default=from_col + 1)
+                to_row = self._get_anchor_int(anchor, 'xdr:to/xdr:row', default=from_row + 1)
+
+                chart_idx = worksheet.charts.add(chart_type, from_row, from_col, to_row, to_col)
+                chart = worksheet.charts[chart_idx]
+                chart._suspend_dirty_tracking = True
+                chart._upper_left_column_offset = self._get_anchor_int(anchor, 'xdr:from/xdr:colOff', default=0)
+                chart._upper_left_row_offset = self._get_anchor_int(anchor, 'xdr:from/xdr:rowOff', default=0)
+                chart._lower_right_column_offset = self._get_anchor_int(anchor, 'xdr:to/xdr:colOff', default=0)
+                chart._lower_right_row_offset = self._get_anchor_int(anchor, 'xdr:to/xdr:rowOff', default=0)
+                chart._is_3d = is_3d
+                chart._source_chart_xml = chart_bytes
+                chart._source_chart_rels_xml = None
+                chart._source_chart_extra_parts = []
+                chart._source_chart_part_path = chart_path
+                chart._source_chart_content_type = None
+                if content_type_overrides:
+                    chart._source_chart_content_type = content_type_overrides.get(f'/{chart_path}')
+                chart._source_is_chart_ex = is_chart_ex
+                chart._source_chart_part_index = None
+                chart_match = re.search(r'chart(\d+)\.xml$', chart_path)
+                if chart_match:
+                    chart._source_chart_part_index = int(chart_match.group(1))
+
+                chart_rels_path = self._rels_path_for_part(chart_path)
+                chart_rels_bytes = self._try_read_bytes(zipf, chart_rels_path)
+                if chart_rels_bytes is not None:
+                    chart._source_chart_rels_xml = chart_rels_bytes
+                    try:
+                        chart_rels_root = ET.fromstring(chart_rels_bytes)
+                        for rel in chart_rels_root.findall('rel:Relationship', namespaces=self._rels_ns):
+                            target = rel.get('Target')
+                            if not target:
+                                continue
+                            part_path = self._resolve_target(chart_path, target)
+                            part_bytes = self._try_read_bytes(zipf, part_path)
+                            if part_bytes is None:
+                                continue
+                            content_type = None
+                            if content_type_overrides:
+                                content_type = content_type_overrides.get(f'/{part_path}')
+                            chart._source_chart_extra_parts.append((part_path, part_bytes, content_type))
+                    except ET.ParseError:
+                        pass
+
+                if is_chart_ex:
+                    plot_chart = chart_root.find('.//cx:plotAreaRegion', namespaces=self._cx_ns)
+                    self._load_chart_ex_settings(chart, chart_root, plot_chart, worksheet)
+                else:
+                    self._load_chart_settings(chart, chart_root, plot_area, is_3d)
+                chart._suspend_dirty_tracking = False
 
     def _detect_standard_chart_type(self, plot_area):
         """

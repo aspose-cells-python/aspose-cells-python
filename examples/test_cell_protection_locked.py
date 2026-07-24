@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from aspose.cells_foss import Workbook
+from examples.output_path_helper import examples_output_path
 
 
 class TestCellProtectionLocked(unittest.TestCase):
@@ -62,7 +63,7 @@ class TestCellProtectionLocked(unittest.TestCase):
         print("\nWorksheet protected with password")
 
         # Save
-        output_file = "outputfiles/test_cell_locked_false.xlsx"
+        output_file = examples_output_path("example_test_cell_locked_false.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -152,7 +153,7 @@ class TestCellProtectionLocked(unittest.TestCase):
         ws.cells['A4'].style.protection.hidden = True
 
         # Save
-        output_file = "outputfiles/test_protection_styles.xlsx"
+        output_file = examples_output_path("example_test_protection_styles.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
 
@@ -213,7 +214,7 @@ class TestCellProtectionLocked(unittest.TestCase):
         print("\nWorksheet protected")
 
         # Save and reload
-        output_file = "outputfiles/test_unlocked_cells_protected.xlsx"
+        output_file = examples_output_path("example_test_unlocked_cells_protected.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
 

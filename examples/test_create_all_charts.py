@@ -28,6 +28,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, ChartType
+from examples.output_path_helper import examples_output_path, ensure_examples_output_dir
 
 
 def test_create_line_chart():
@@ -61,7 +62,7 @@ def test_create_line_chart():
     chart.n_series.add("C2:C7", category_data="A2:A7", name="Expenses")
     
     # Save
-    output_path = "outputfiles/progcharts/line_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_line_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -108,7 +109,7 @@ def test_create_bar_chart():
     chart.n_series.add("E2:E5", category_data="A2:A5", name="Q4")
     
     # Save
-    output_path = "outputfiles/progcharts/bar_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_bar_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -143,7 +144,7 @@ def test_create_pie_chart():
     chart.n_series.add("B2:B6", category_data="A2:A6", name="Sales")
     
     # Save
-    output_path = "outputfiles/progcharts/pie_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_pie_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -180,7 +181,7 @@ def test_create_area_chart():
     chart.n_series.add("C2:C6", category_data="A2:A6", name="Profit")
     
     # Save
-    output_path = "outputfiles/progcharts/area_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_area_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -229,7 +230,7 @@ def test_create_box_whisker_chart():
     chart.n_series.add("B4:F4", category_data="B1:F1", name="Group C")
     
     # Save
-    output_path = "outputfiles/progcharts/box_whisker_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_box_whisker_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -268,7 +269,7 @@ def test_create_waterfall_chart():
     chart.n_series.add("B2:B7", category_data="A2:A7", name="Cash Flow")
     
     # Save
-    output_path = "outputfiles/progcharts/waterfall_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_waterfall_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -304,7 +305,7 @@ def test_create_scatter_chart():
     chart.n_series.add("C2:C11", category_data="A2:A11", name="Series 2", x_values="A2:A11")
     
     # Save
-    output_path = "outputfiles/progcharts/scatter_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_scatter_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -360,7 +361,7 @@ def test_create_combo_chart():
     chart.add_axis(axis_type="val", axis_id=70000002, position="r")
     
     # Save
-    output_path = "outputfiles/progcharts/combo_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_combo_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -401,7 +402,7 @@ def test_create_stock_chart():
     chart.n_series.add("D2:D6", category_data="A2:A6", name="Close")
     
     # Save
-    output_path = "outputfiles/progcharts/stock_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_stock_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -441,7 +442,7 @@ def test_create_surface_chart():
     chart.n_series.add("B2:E5", category_data="A2:A5", name="Surface")
     
     # Save
-    output_path = "outputfiles/progcharts/surface_chart_3d.xlsx"
+    output_path = examples_output_path("progcharts", "example_surface_chart_3d.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -470,7 +471,7 @@ def test_create_surface_chart():
     
     chart2.n_series.add("B2:E5", category_data="A2:A5", name="Surface")
     
-    output_path2 = "outputfiles/progcharts/surface_chart_wireframe.xlsx"
+    output_path2 = examples_output_path("progcharts", "example_surface_chart_wireframe.xlsx")
     wb2.save(output_path2)
     assert os.path.exists(output_path2)
     print(f"Created: {output_path2}")
@@ -512,7 +513,7 @@ def test_create_radar_chart():
     chart.n_series.add("C2:C6", category_data="A2:A6", name="Product B")
     chart.n_series.add("D2:D6", category_data="A2:A6", name="Product C")
     
-    output_path = "outputfiles/progcharts/radar_chart_standard.xlsx"
+    output_path = examples_output_path("progcharts", "example_radar_chart_standard.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -542,7 +543,7 @@ def test_create_radar_chart():
     chart2.n_series.add("C2:C6", category_data="A2:A6", name="Product B")
     chart2.n_series.add("D2:D6", category_data="A2:A6", name="Product C")
     
-    output_path2 = "outputfiles/progcharts/radar_chart_filled.xlsx"
+    output_path2 = examples_output_path("progcharts", "example_radar_chart_filled.xlsx")
     wb2.save(output_path2)
     assert os.path.exists(output_path2)
     print(f"Created: {output_path2}")
@@ -585,7 +586,7 @@ def test_create_treemap_chart():
     chart.n_series.add("C2:C10", category_data="A2:A10", name="Sales")
     
     # Save
-    output_path = "outputfiles/progcharts/treemap_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_treemap_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -632,7 +633,7 @@ def test_create_sunburst_chart():
     chart.n_series.add("D2:D13", category_data="A2:A13", name="Sales")
     
     # Save
-    output_path = "outputfiles/progcharts/sunburst_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_sunburst_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -665,7 +666,7 @@ def test_create_histogram_chart():
     chart.n_series.add("A2:A41", name="Scores")
     
     # Save
-    output_path = "outputfiles/progcharts/histogram_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_histogram_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -688,7 +689,7 @@ def test_create_histogram_chart():
     
     chart2.n_series.add("A2:A41", name="Scores")
     
-    output_path2 = "outputfiles/progcharts/histogram_chart_binsize.xlsx"
+    output_path2 = examples_output_path("progcharts", "example_histogram_chart_binsize.xlsx")
     wb2.save(output_path2)
     assert os.path.exists(output_path2)
     print(f"Created: {output_path2}")
@@ -719,7 +720,7 @@ def test_create_funnel_chart():
     chart.n_series.add("B2:B6", category_data="A2:A6", name="Funnel")
     
     # Save
-    output_path = "outputfiles/progcharts/funnel_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_funnel_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -750,7 +751,7 @@ def test_create_map_chart():
     chart.n_series.add("B2:B9", category_data="A2:A9", name="Sales")
     
     # Save
-    output_path = "outputfiles/progcharts/map_chart.xlsx"
+    output_path = examples_output_path("progcharts", "example_map_chart.xlsx")
     wb.save(output_path)
     assert os.path.exists(output_path)
     print(f"Created: {output_path}")
@@ -759,7 +760,7 @@ def test_create_map_chart():
 def test_create_all_charts():
     """Create all supported chart types in one test."""
     # Ensure output directory exists
-    os.makedirs("outputfiles/progcharts", exist_ok=True)
+    ensure_examples_output_dir("progcharts")
     
     print("\n=== Creating All Supported Chart Types ===\n")
     print("Note: Box and Whisker chart creation is not yet implemented.\n")
@@ -782,7 +783,7 @@ def test_create_all_charts():
     test_create_map_chart()
     
     print("\n=== All Supported Charts Created Successfully ===\n")
-    print("Output files saved to: outputfiles/progcharts/")
+    print("Output files saved to: examples/outputfiles/progcharts/")
 
 
 if __name__ == "__main__":

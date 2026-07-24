@@ -7,6 +7,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Cell
+from examples.output_path_helper import examples_output_path
 
 
 class TestCellValues(unittest.TestCase):
@@ -140,7 +141,7 @@ class TestCellValues(unittest.TestCase):
             self.worksheet.cells[ref] = cell
         
         # Save to outputfiles folder
-        output_path = 'outputfiles/test_cell_values.xlsx'
+        output_path = examples_output_path('example_test_cell_values.xlsx')
         
         # Ensure outputfiles directory exists
         os.makedirs('outputfiles', exist_ok=True)

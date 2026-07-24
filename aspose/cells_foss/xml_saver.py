@@ -347,8 +347,18 @@ class XMLSaver:
         # references) so existing IDs remain valid after save.
         self._dxf_styles = list(getattr(self._workbook, '_dxf_styles', []) or [])
 
+        # When the source styles.xml is copied through verbatim, only the dxfs it
+        # already contains exist in the output, so appending new ones would leave
+        # cfRules pointing past the end of <dxfs> and Excel refuses to open the file.
+        can_append_dxfs = not self._can_preserve_source_styles()
+
         for worksheet in self._workbook.worksheets:
             for cf in worksheet.conditional_formats:
+                # dxfId the rule was loaded with, if any.
+                source_dxf_id = getattr(cf, '_dxf_id', None)
+                if source_dxf_id is not None and not 0 <= source_dxf_id < len(self._dxf_styles):
+                    source_dxf_id = None
+
                 # Skip rules that don't use dxf (colorScale, dataBar, iconSet)
                 if cf._type in ('colorScale', 'dataBar', 'iconSet'):
                     cf._dxf_id = None
@@ -357,13 +367,16 @@ class XMLSaver:
                 # Check if this conditional format has any formatting applied
                 has_formatting = self._cf_has_formatting(cf)
 
-                if has_formatting:
+                if has_formatting and can_append_dxfs:
                     # Create dxf entry and assign ID
                     dxf_data = self._create_dxf_data(cf)
                     cf._dxf_id = len(self._dxf_styles)
                     self._dxf_styles.append(dxf_data)
                 else:
-                    cf._dxf_id = None
+                    # Fall back to the rule's original dxf, which survives the save
+                    # either way: it is in the preserved styles.xml, and it is also
+                    # re-emitted when styles.xml is regenerated.
+                    cf._dxf_id = source_dxf_id
 
     def _cf_has_formatting(self, cf):
         """Checks if a conditional format has any formatting applied."""
@@ -444,6 +457,7 @@ class XMLSaver:
             self._sheet_drawing_paths = {}
             self._sheet_table_rel_ids = {}
             self._table_global_indices = {}
+            written_child_parts = set()
             # Pre-pass: assign globally-unique table numbers across all worksheets.
             _global_table_num = 1
             for _i, _ws in enumerate(self._workbook.worksheets):
@@ -492,6 +506,18 @@ class XMLSaver:
             # This must be done BEFORE writing shared strings and styles XML
             next_chart_index = 1
             for i, worksheet in enumerate(self._workbook.worksheets):
+                # Chartsheets have no worksheet object model: re-emit their preserved
+                # part subtree (chartsheet xml, drawing, charts, ...) verbatim.
+                if getattr(worksheet, '_is_chartsheet', False):
+                    for part in getattr(worksheet, '_chartsheet_parts', []):
+                        path = part.get('part_path')
+                        data = part.get('part_bytes')
+                        if not path or data is None or path in written_child_parts:
+                            continue
+                        written_child_parts.add(path)
+                        zipf.writestr(path, data)
+                    continue
+
                 # Write xl/worksheets/sheet{i+1}.xml
                 self._write_worksheet_xml(zipf, worksheet, i+1)
 
@@ -515,6 +541,17 @@ class XMLSaver:
                     for r in getattr(worksheet, '_source_extra_sheet_rels', []):
                         if r.get('part_bytes') and r.get('part_path'):
                             zipf.writestr(r['part_path'], r['part_bytes'])
+                        if r.get('part_rels_bytes') and r.get('part_rels_path'):
+                            zipf.writestr(r['part_rels_path'], r['part_rels_bytes'])
+                        # Sheets commonly share one image across their vmlDrawings,
+                        # so only the first sheet to claim a media part writes it.
+                        for child in r.get('child_parts', []):
+                            if not (child.get('part_bytes') and child.get('part_path')):
+                                continue
+                            if child['part_path'] in written_child_parts:
+                                continue
+                            written_child_parts.add(child['part_path'])
+                            zipf.writestr(child['part_path'], child['part_bytes'])
 
             # Write extra workbook rel parts (external links, etc.) for round-trip
             for r in getattr(self._workbook, '_source_extra_workbook_rels', []):
@@ -522,6 +559,9 @@ class XMLSaver:
                     zipf.writestr(r['part_path'], r['part_bytes'])
                 if r.get('part_rels_bytes') and r.get('part_rels_path'):
                     zipf.writestr(r['part_rels_path'], r['part_rels_bytes'])
+                for child in r.get('child_parts', []):
+                    if child.get('part_bytes') and child.get('part_path'):
+                        zipf.writestr(child['part_path'], child['part_bytes'])
             calc_chain_bytes = getattr(self._workbook, '_source_calc_chain_bytes', None)
             calc_chain_rel = getattr(self._workbook, '_source_calc_chain_rel', None)
             if self._can_preserve_calc_chain() and calc_chain_bytes and calc_chain_rel and calc_chain_rel.get('part_path'):
@@ -840,9 +880,19 @@ class XMLSaver:
         content += append_override("/xl/styles.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml")
         content += append_override("/xl/sharedStrings.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
         
-        # Add worksheet content types
-        for i in range(len(self._workbook.worksheets)):
+        # Add worksheet content types (chartsheets declare their own below)
+        for i, worksheet in enumerate(self._workbook.worksheets):
+            if getattr(worksheet, '_is_chartsheet', False):
+                continue
             content += append_override(f"/xl/worksheets/sheet{i+1}.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")
+
+        # Add chartsheet content types and those of their preserved sub-parts
+        # (drawing, charts, printerSettings, ...).
+        for worksheet in self._workbook.worksheets:
+            if not getattr(worksheet, '_is_chartsheet', False):
+                continue
+            for part_name, content_type in getattr(worksheet, '_chartsheet_content_types', []):
+                content += append_override(part_name, content_type)
         
         # Add comments and VML drawing content types for worksheets that have comments
         for i, worksheet in enumerate(self._workbook.worksheets):
@@ -904,6 +954,9 @@ class XMLSaver:
         for r in getattr(self._workbook, '_source_extra_workbook_rels', []):
             if r.get('part_path') and r.get('content_type'):
                 content += append_override(f'/{r["part_path"]}', r['content_type'])
+            for child in r.get('child_parts', []):
+                if child.get('part_path') and child.get('content_type'):
+                    content += append_override(f'/{child["part_path"]}', child['content_type'])
         calc_chain_rel = getattr(self._workbook, '_source_calc_chain_rel', None)
         preserve_calc_chain = self._can_preserve_calc_chain()
         if preserve_calc_chain and calc_chain_rel and calc_chain_rel.get('part_path'):
@@ -950,9 +1003,16 @@ class XMLSaver:
         content = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         content += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
         
-        # Add worksheet relationships
-        for i in range(len(self._workbook.worksheets)):
-            content += f'    <Relationship Id="rId{i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i+1}.xml"/>\n'
+        # Add sheet relationships (worksheets and chartsheets, in workbook order)
+        for i, worksheet in enumerate(self._workbook.worksheets):
+            if getattr(worksheet, '_is_chartsheet', False):
+                target = getattr(worksheet, '_chartsheet_part_path', '')
+                # Workbook rels are relative to xl/, so drop the leading "xl/".
+                if target.startswith('xl/'):
+                    target = target[len('xl/'):]
+                content += f'    <Relationship Id="rId{i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet" Target="{self._escape_xml(target)}"/>\n'
+            else:
+                content += f'    <Relationship Id="rId{i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i+1}.xml"/>\n'
         
         # Add styles and shared strings relationships
         content += '    <Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>\n'
@@ -1971,11 +2031,85 @@ class XMLSaver:
             gidx = self._table_global_indices.get((sheet_num, j), j + 1)
             if getattr(table, '_source_table_xml', None) is not None:
                 path = getattr(table, '_source_part_path', None) or f'xl/tables/table{gidx}.xml'
-                zipf.writestr(path, table._source_table_xml)
+                table_xml = self._sync_table_column_names(table._source_table_xml, worksheet)
+                zipf.writestr(path, table_xml)
             else:
                 path = f'xl/tables/table{gidx}.xml'
                 xml_str = self._table_writer.format_table_xml(table, gidx)
                 zipf.writestr(path, xml_str.encode('utf-8'))
+
+    @staticmethod
+    def _col_index_to_letter(idx):
+        """0-based column index -> column letter(s), e.g. 0 -> 'A', 27 -> 'AB'."""
+        letters = ''
+        idx += 1
+        while idx > 0:
+            idx, rem = divmod(idx - 1, 26)
+            letters = chr(ord('A') + rem) + letters
+        return letters
+
+    def _sync_table_column_names(self, table_xml, worksheet):
+        """
+        Rewrites a preserved table's <tableColumn> names to match its current
+        header-row cells.
+
+        The table part is round-tripped as source bytes, so editing a header cell
+        (as the round-trip test does to A1) would otherwise leave the column name
+        out of sync with the header text. Excel requires them to match and rejects
+        the file otherwise. When the header cell is unchanged this is a no-op, so
+        untouched tables serialize byte-for-byte as before.
+        """
+        from .table import _parse_cell_range
+
+        try:
+            text = table_xml.decode('utf-8')
+        except (UnicodeDecodeError, AttributeError):
+            return table_xml
+
+        table_tag = re.search(r'<table\b[^>]*>', text)
+        if not table_tag:
+            return table_xml
+        tag = table_tag.group(0)
+
+        ref_m = re.search(r'\bref="([^"]+)"', tag)
+        if not ref_m:
+            return table_xml
+        rng = _parse_cell_range(ref_m.group(1))
+        if not rng:
+            return table_xml
+        start_row, start_col, _end_row, end_col = rng
+
+        hrc_m = re.search(r'\bheaderRowCount="([^"]+)"', tag)
+        try:
+            header_row_count = int(hrc_m.group(1)) if hrc_m else 1
+        except ValueError:
+            header_row_count = 1
+        if header_row_count == 0:
+            # Header-less table: column names are independent of any cell.
+            return table_xml
+
+        cells_map = getattr(worksheet.cells, '_cells', {})
+        col_iter = iter(range(start_col, end_col + 1))
+
+        def replace_column(mo):
+            col_tag = mo.group(0)
+            try:
+                col = next(col_iter)
+            except StopIteration:
+                return col_tag
+            ref = f'{self._col_index_to_letter(col)}{start_row + 1}'
+            cell = cells_map.get(ref)
+            value = getattr(cell, 'value', None) if cell is not None else None
+            # Only sync to a real, non-empty string; Excel forbids blank names.
+            if not isinstance(value, str) or value == '':
+                return col_tag
+            new_name = self._escape_xml(value)
+            if re.search(r'\bname="[^"]*"', col_tag):
+                return re.sub(r'\bname="[^"]*"', f'name="{new_name}"', col_tag, count=1)
+            return col_tag
+
+        new_text = re.sub(r'<tableColumn\b[^>]*>', replace_column, text)
+        return new_text.encode('utf-8')
 
     def _write_theme_xml(self, zipf):
         """Writes xl/theme/theme1.xml.

@@ -12,6 +12,7 @@ import re
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook
+from examples.output_path_helper import examples_output_path
 
 
 class TestCommentSize(unittest.TestCase):
@@ -63,7 +64,7 @@ class TestCommentSize(unittest.TestCase):
 
     def test_comment_size_persistence(self):
         """Test that comment sizes are persisted in XLSX file."""
-        output_file = 'outputfiles/test_comment_size.xlsx'
+        output_file = examples_output_path('example_test_comment_size.xlsx')
         os.makedirs('outputfiles', exist_ok=True)
 
         # Create workbook with sized comments
@@ -141,7 +142,7 @@ class TestCommentSize(unittest.TestCase):
         ws.cells['A1'].set_comment("No size specified", "Author")
 
         # Save and check VML
-        output_file = 'outputfiles/test_default_comment_size.xlsx'
+        output_file = examples_output_path('example_test_default_comment_size.xlsx')
         os.makedirs('outputfiles', exist_ok=True)
         wb.save(output_file)
 

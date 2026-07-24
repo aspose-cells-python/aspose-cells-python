@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from aspose.cells_foss import Workbook
+from examples.output_path_helper import examples_output_path, ensure_examples_output_dir
 
 
 class TestHyperlinks(unittest.TestCase):
@@ -63,7 +64,7 @@ class TestHyperlinks(unittest.TestCase):
         print(f"  [OK] Collection has {ws.hyperlinks.count} hyperlink(s)")
 
         # Save to file
-        output_file = "outputfiles/test_hyperlink_external.xlsx"
+        output_file = examples_output_path("example_test_hyperlink_external.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -103,7 +104,7 @@ class TestHyperlinks(unittest.TestCase):
         print("  [OK] Internal hyperlink created")
 
         # Save to file
-        output_file = "outputfiles/test_hyperlink_internal.xlsx"
+        output_file = examples_output_path("example_test_hyperlink_internal.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -150,7 +151,7 @@ class TestHyperlinks(unittest.TestCase):
         ws.cells['A4'].value = "Go to Top"
 
         # Save
-        output_file = "outputfiles/test_hyperlinks_roundtrip.xlsx"
+        output_file = examples_output_path("example_test_hyperlinks_roundtrip.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -289,7 +290,7 @@ class TestHyperlinks(unittest.TestCase):
             print(f"  {i+1}. {link.range}: {link.text_to_display or '(no display)'}")
 
         # Save to file
-        output_file = "outputfiles/test_hyperlinks_multiple.xlsx"
+        output_file = examples_output_path("example_test_hyperlinks_multiple.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -339,7 +340,7 @@ class TestHyperlinks(unittest.TestCase):
         print(f"After another delete: {ws.hyperlinks.count}")
 
         # Save file with remaining hyperlink (A4)
-        output_file = "outputfiles/test_hyperlinks_delete.xlsx"
+        output_file = examples_output_path("example_test_hyperlinks_delete.xlsx")
         print(f"\nSaving to {output_file} (1 hyperlink remaining)...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -393,7 +394,7 @@ class TestHyperlinks(unittest.TestCase):
         ws.hyperlinks.add("B1", "https://www.example.com")
 
         # Save
-        output_file = "outputfiles/test_hyperlink_order.xlsx"
+        output_file = examples_output_path("example_test_hyperlink_order.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
 
@@ -464,7 +465,7 @@ class TestHyperlinks(unittest.TestCase):
         print(f"\n[OK] Added {ws.hyperlinks.count} file/UNC hyperlinks")
 
         # Save to file
-        output_file = "outputfiles/test_hyperlinks_files.xlsx"
+        output_file = examples_output_path("example_test_hyperlinks_files.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -567,7 +568,7 @@ class TestHyperlinks(unittest.TestCase):
             print(f"  {i}. {link.range}: {link_type} -> {target[:50]}...")
 
         # Save to file
-        output_file = "outputfiles/test_hyperlinks_comprehensive.xlsx"
+        output_file = examples_output_path("example_test_hyperlinks_comprehensive.xlsx")
         print(f"\nSaving to {output_file}...")
         wb.save(output_file)
         self.assertTrue(os.path.exists(output_file))
@@ -595,7 +596,7 @@ class TestHyperlinks(unittest.TestCase):
 
 if __name__ == '__main__':
     # Create output directory if it doesn't exist
-    os.makedirs('outputfiles', exist_ok=True)
+    ensure_examples_output_dir()
 
     # Run tests
     unittest.main(verbosity=2)

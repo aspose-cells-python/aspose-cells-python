@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook
 from aspose.cells_foss import MsoDrawingType, FillType, MsoLineDashStyle, TextAlignmentType, TextAnchorType
+from examples.output_path_helper import examples_output_path, ensure_examples_output_dir
 
 
 def test_create_workflow_with_shapes():
@@ -25,9 +26,9 @@ def test_create_workflow_with_shapes():
     Create a new Excel file with dummy data and add workflow shapes.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createshape", exist_ok=True)
+    ensure_examples_output_dir("createshape")
     
-    output_path = "tests/outputfiles/createshape/test_create_workflow.xlsx"
+    output_path = examples_output_path("createshape", "example_test_create_workflow.xlsx")
     
     # Create a new workbook
     print("Creating new workbook...")
@@ -357,9 +358,9 @@ def test_create_approval_workflow():
     Create a new Excel file with an approval workflow using shapes.
     """
     # Ensure output directory exists
-    os.makedirs("tests/outputfiles/createshape", exist_ok=True)
+    ensure_examples_output_dir("createshape")
     
-    output_path = "tests/outputfiles/createshape/test_create_approval_workflow.xlsx"
+    output_path = examples_output_path("createshape", "example_test_create_approval_workflow.xlsx")
     
     # Create a new workbook
     print("\nCreating new workbook for approval workflow...")

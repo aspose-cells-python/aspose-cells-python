@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Worksheet, Cell
+from examples.output_path_helper import examples_output_path
 
 
 class TestWorksheetManagement(unittest.TestCase):
@@ -326,7 +327,7 @@ class TestWorksheetManagement(unittest.TestCase):
         print(f"    New active worksheet: {active_ws.name}")
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_worksheet_management.xlsx'
+        output_path = examples_output_path('example_test_worksheet_management.xlsx')
         
         # Ensure outputfiles directory exists
         os.makedirs('outputfiles', exist_ok=True)
@@ -358,7 +359,7 @@ class TestWorksheetManagement(unittest.TestCase):
         
         # Load the file back and verify settings
         print("Loading file back and verifying worksheet management settings...")
-        loaded_workbook = Workbook('outputfiles/test_worksheet_management.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_worksheet_management.xlsx'))
         
         # Verify total number of worksheets
         print("Verifying worksheet count...")

@@ -67,7 +67,7 @@ class TestEncryption(unittest.TestCase):
         wb = self.create_test_workbook()
 
         # Save with encryption
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_basic.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_basic.xlsx")
         print(f"Saving encrypted file to {encrypted_file}...")
         wb.save(encrypted_file, password=self.test_password)
         self.assertTrue(os.path.exists(encrypted_file))
@@ -108,7 +108,7 @@ class TestEncryption(unittest.TestCase):
 
         # Create and encrypt workbook
         wb = self.create_test_workbook()
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_wrong_pwd.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_wrong_pwd.xlsx")
         wb.save(encrypted_file, password=self.test_password)
         print(f"\nEncrypted file created with password: '{self.test_password}'")
 
@@ -136,7 +136,7 @@ class TestEncryption(unittest.TestCase):
 
         # Create and encrypt workbook
         wb = self.create_test_workbook()
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_no_pwd.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_no_pwd.xlsx")
         wb.save(encrypted_file, password=self.test_password)
         print(f"\nEncrypted file created")
 
@@ -171,7 +171,7 @@ class TestEncryption(unittest.TestCase):
         print(f"  Spin count: {params.spin_count:,}")
 
         # Save with custom parameters
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_aes256_sha512.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_aes256_sha512.xlsx")
         print(f"\nSaving with AES-256/SHA-512...")
         wb.save(encrypted_file, password=self.test_password, encryption_params=params)
         self.assertTrue(os.path.exists(encrypted_file))
@@ -206,7 +206,7 @@ class TestEncryption(unittest.TestCase):
         print(f"  Spin count: {params.spin_count:,}")
 
         # Save with custom parameters
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_aes128_sha1.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_aes128_sha1.xlsx")
         print(f"\nSaving with AES-128/SHA-1...")
         wb.save(encrypted_file, password=self.test_password, encryption_params=params)
         self.assertTrue(os.path.exists(encrypted_file))
@@ -245,7 +245,7 @@ class TestEncryption(unittest.TestCase):
                 spin_count=50000  # Reduced for faster testing
             )
 
-            encrypted_file = os.path.join(self.output_dir, f"test_encrypted_{name.lower()}.xlsx")
+            encrypted_file = os.path.join(self.output_dir, f"example_test_encrypted_{name.lower()}.xlsx")
             wb.save(encrypted_file, password=self.test_password, encryption_params=params)
 
             # Verify roundtrip
@@ -264,19 +264,19 @@ class TestEncryption(unittest.TestCase):
 
         # Create unencrypted file
         wb = self.create_test_workbook()
-        unencrypted_file = os.path.join(self.output_dir, "test_unencrypted.xlsx")
+        unencrypted_file = os.path.join(self.output_dir, "example_test_unencrypted.xlsx")
         wb.save(unencrypted_file)
         print(f"\nCreated unencrypted file: {unencrypted_file}")
 
         # Encrypt using utility function
-        encrypted_file = os.path.join(self.output_dir, "test_util_encrypted.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_util_encrypted.xlsx")
         print(f"\nEncrypting with encrypt_xlsx()...")
         encrypt_xlsx(unencrypted_file, encrypted_file, self.test_password)
         self.assertTrue(os.path.exists(encrypted_file))
         print(f"  [OK] Encrypted file created")
 
         # Decrypt using utility function
-        decrypted_file = os.path.join(self.output_dir, "test_util_decrypted.xlsx")
+        decrypted_file = os.path.join(self.output_dir, "example_test_util_decrypted.xlsx")
         print(f"\nDecrypting with decrypt_xlsx()...")
         decrypt_xlsx(encrypted_file, decrypted_file, self.test_password)
         self.assertTrue(os.path.exists(decrypted_file))
@@ -327,7 +327,7 @@ class TestEncryption(unittest.TestCase):
         print(f"  Sheet 2: '{ws2.name}'")
 
         # Save with encryption
-        encrypted_file = os.path.join(self.output_dir, "test_encrypted_comprehensive.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_encrypted_comprehensive.xlsx")
         print(f"\nEncrypting comprehensive workbook...")
         wb.save(encrypted_file, password=self.test_password)
         file_size = os.path.getsize(encrypted_file)
@@ -396,7 +396,7 @@ class TestEncryption(unittest.TestCase):
         print("    - A4: 'Charlie', B4: 28, C4: 92.3")
 
         # Save to non-encrypted XLSX file first
-        unencrypted_file = os.path.join(self.output_dir, "test_unencrypted.xlsx")
+        unencrypted_file = os.path.join(self.output_dir, "example_test_unencrypted.xlsx")
         print(f"\nSaving to non-encrypted file: {unencrypted_file}")
         wb.save(unencrypted_file)
         
@@ -413,7 +413,7 @@ class TestEncryption(unittest.TestCase):
 
         # Save to encrypted XLSX file with password "hello"
         password = "hello"
-        encrypted_file = os.path.join(self.output_dir, "test_hello_password.xlsx")
+        encrypted_file = os.path.join(self.output_dir, "example_test_hello_password.xlsx")
         print(f"\nSaving to encrypted file: {encrypted_file}")
         print(f"Using password: '{password}'")
         wb.save(encrypted_file, password=password)

@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Worksheet, Cell, Style, Font
+from examples.output_path_helper import examples_output_path
 
 
 class TestFontSettings(unittest.TestCase):
@@ -232,7 +233,7 @@ class TestFontSettings(unittest.TestCase):
         self.test_comprehensive_font_test()
         
         # Save to outputfiles folder
-        output_path = 'outputfiles/test_font_settings.xlsx'
+        output_path = examples_output_path('example_test_font_settings.xlsx')
         
         # Ensure outputfiles directory exists
         os.makedirs('outputfiles', exist_ok=True)

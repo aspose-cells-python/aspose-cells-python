@@ -27,6 +27,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook
+from examples.output_path_helper import examples_output_path
 
 
 class TestConditionalFormatting(unittest.TestCase):
@@ -134,7 +135,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_cell_value_rules.xlsx'
+        output_path = examples_output_path('example_test_cell_value_rules.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -258,7 +259,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_text_rules.xlsx'
+        output_path = examples_output_path('example_test_text_rules.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -333,7 +334,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_date_rules.xlsx'
+        output_path = examples_output_path('example_test_date_rules.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -377,7 +378,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_duplicate_unique_values.xlsx'
+        output_path = examples_output_path('example_test_duplicate_unique_values.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -442,7 +443,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_top_bottom_rules.xlsx'
+        output_path = examples_output_path('example_test_top_bottom_rules.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -486,7 +487,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_above_below_average.xlsx'
+        output_path = examples_output_path('example_test_above_below_average.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -536,7 +537,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_color_scale.xlsx'
+        output_path = examples_output_path('example_test_color_scale.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -571,7 +572,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_data_bar.xlsx'
+        output_path = examples_output_path('example_test_data_bar.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -600,7 +601,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_icon_set.xlsx'
+        output_path = examples_output_path('example_test_icon_set.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -633,7 +634,7 @@ class TestConditionalFormatting(unittest.TestCase):
         
         # Save to separate file
         os.makedirs('outputfiles', exist_ok=True)
-        output_path = 'outputfiles/test_formula_rule.xlsx'
+        output_path = examples_output_path('example_test_formula_rule.xlsx')
         self.workbook.save(output_path)
         self.assertTrue(os.path.exists(output_path))
         file_size = os.path.getsize(output_path)
@@ -671,7 +672,7 @@ class TestConditionalFormatting(unittest.TestCase):
         os.makedirs('outputfiles', exist_ok=True)
         
         # Save workbook
-        output_path = 'outputfiles/test_conditional_formatting_cell_value.xlsx'
+        output_path = examples_output_path('example_test_conditional_formatting_cell_value.xlsx')
         self.workbook.save(output_path)
         
         # Verify file was created
@@ -700,7 +701,7 @@ class TestConditionalFormatting(unittest.TestCase):
             self.worksheet.cells[f'B{i}'].value = i * 100
         
         # Save workbook
-        save_path = 'outputfiles/test_conditional_formatting_cell_value.xlsx'
+        save_path = examples_output_path('example_test_conditional_formatting_cell_value.xlsx')
         self.workbook.save(save_path)
         
         # Load workbook back
@@ -988,7 +989,7 @@ class TestConditionalFormatting(unittest.TestCase):
         os.makedirs('outputfiles', exist_ok=True)
         
         # Save workbook
-        output_path = 'outputfiles/test_conditional_formatting_comprehensive.xlsx'
+        output_path = examples_output_path('example_test_conditional_formatting_comprehensive.xlsx')
         self.workbook.save(output_path)
         
         # Verify file was created

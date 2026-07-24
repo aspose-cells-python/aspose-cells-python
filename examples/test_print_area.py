@@ -23,7 +23,7 @@ class TestPrintArea(unittest.TestCase):
         os.makedirs(self.test_dir, exist_ok=True)
 
     def test_set_print_area_and_save(self):
-        path = os.path.join(self.test_dir, "print_area_demo.xlsx")
+        path = os.path.join(self.test_dir, "example_print_area_demo.xlsx")
 
         wb = Workbook()
         ws = wb.worksheets[0]
@@ -52,7 +52,7 @@ class TestPrintArea(unittest.TestCase):
         self.assertEqual(ws2.print_area, "A1:C10")
 
     def test_clear_print_area_and_save(self):
-        path = os.path.join(self.test_dir, "print_area_cleared_demo.xlsx")
+        path = os.path.join(self.test_dir, "example_print_area_cleared_demo.xlsx")
 
         wb = Workbook()
         ws = wb.worksheets[0]

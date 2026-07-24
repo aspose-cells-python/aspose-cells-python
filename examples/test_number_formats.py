@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Cell, NumberFormat
+from examples.output_path_helper import examples_output_path
 
 
 class TestNumberFormats(unittest.TestCase):
@@ -494,7 +495,7 @@ class TestNumberFormats(unittest.TestCase):
         custom_test_cases = self.test_custom_number_formats()
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_number_formats.xlsx'
+        output_path = examples_output_path('example_test_number_formats.xlsx')
         
         # Ensure outputfiles directory exists
         os.makedirs('outputfiles', exist_ok=True)

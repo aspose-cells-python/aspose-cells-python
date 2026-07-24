@@ -67,7 +67,7 @@ from .sparkline import (
     SparklineGroup, SparklineGroupCollection,
 )
 
-__version__ = "26.2.2"
+__version__ = "26.7.0"
 __all__ = [
     "Workbook",
     "SaveFormat",

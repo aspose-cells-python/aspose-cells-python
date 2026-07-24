@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Worksheet, Cell
+from examples.output_path_helper import examples_output_path
 
 
 class TestWorksheetProperties(unittest.TestCase):
@@ -334,10 +335,7 @@ class TestWorksheetProperties(unittest.TestCase):
         print("  Created CombinedProperties (all properties)")
         
         # Save workbook to outputfiles folder
-        output_path = 'outputfiles/test_worksheet_properties.xlsx'
-        
-        # Ensure outputfiles directory exists
-        os.makedirs('outputfiles', exist_ok=True)
+        output_path = examples_output_path('example_test_worksheet_properties.xlsx')
         
         print(f"Saving workbook to {output_path}...")
         self.workbook.save(output_path)
@@ -372,7 +370,7 @@ class TestWorksheetProperties(unittest.TestCase):
         
         # Load the file back and verify properties
         print("Loading file back and verifying worksheet properties...")
-        loaded_workbook = Workbook('outputfiles/test_worksheet_properties.xlsx')
+        loaded_workbook = Workbook(examples_output_path('example_test_worksheet_properties.xlsx'))
         
         # Verify basic properties
         print("Verifying basic properties...")

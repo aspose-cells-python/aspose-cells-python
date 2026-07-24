@@ -9,6 +9,7 @@ ECMA-376 Compliant cell value import.
 """
 
 import xml.etree.ElementTree as ET
+import posixpath
 import re
 from .cell_value_handler import CellValueHandler
 from .comment_xml import CommentXMLReader
@@ -119,6 +120,9 @@ class XMLLoader:
 
         # Load worksheet information
         self._load_worksheet_info(workbook_root)
+
+        # Detect chartsheets and preserve their parts for round-trip.
+        self._load_chartsheets(zipf, workbook_root)
 
         # Apply worksheet print areas from workbook defined names.
         self._apply_print_areas_from_defined_names()
@@ -270,6 +274,122 @@ class XMLLoader:
 
             self.workbook._worksheets.append(worksheet)
 
+    CHARTSHEET_REL_TYPE = (
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet'
+    )
+
+    def _load_chartsheets(self, zipf, workbook_root):
+        """
+        Marks sheets that are chartsheets and preserves their whole part subtree.
+
+        A chartsheet is a `<sheet>` in workbook.xml whose workbook relationship has
+        the chartsheet type. This library has no chartsheet object model, so the
+        chartsheet XML and everything it transitively references (drawing, charts,
+        printerSettings, ...) is captured verbatim and re-emitted on save. Without
+        this the sheet would be rewritten as an empty worksheet and its charts lost,
+        which corrupts the package.
+        """
+        try:
+            rels_bytes = zipf.read('xl/_rels/workbook.xml.rels')
+        except KeyError:
+            return
+
+        try:
+            rels_root = ET.fromstring(rels_bytes)
+        except ET.ParseError:
+            return
+
+        rns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+        rel_by_id = {}
+        for rel in rels_root.findall('r:Relationship', rns):
+            rel_by_id[rel.get('Id')] = (rel.get('Type', ''), rel.get('Target', ''))
+
+        r_ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        sheets = workbook_root.findall('.//main:sheet', namespaces=self.ns)
+        for idx, sheet in enumerate(sheets):
+            if idx >= len(self.workbook._worksheets):
+                break
+            rid = sheet.get(f'{{{r_ns}}}id')
+            rel = rel_by_id.get(rid)
+            if not rel:
+                continue
+            rel_type, target = rel
+            worksheet = self.workbook._worksheets[idx]
+
+            # Record the real source part number. Sheet parts are not necessarily
+            # numbered 1..N in workbook order once chartsheets are interleaved, so the
+            # positional index cannot be trusted to locate a worksheet's own part.
+            m = re.search(r'(\d+)\.xml$', target)
+            if m:
+                worksheet._source_sheet_num = int(m.group(1))
+
+            if rel_type != self.CHARTSHEET_REL_TYPE:
+                continue
+
+            part_path = self._resolve_part_path('xl', target)
+            try:
+                zipf.read(part_path)
+            except KeyError:
+                continue
+
+            parts, overrides = self._collect_part_subtree(zipf, part_path)
+            worksheet._is_chartsheet = True
+            worksheet._chartsheet_part_path = part_path
+            worksheet._chartsheet_parts = parts
+            worksheet._chartsheet_content_types = overrides
+
+    def _collect_part_subtree(self, zipf, root_part_path):
+        """
+        Reads a part and every internal part reachable through its rels chain.
+
+        Returns (parts, overrides): `parts` is a list of {part_path, part_bytes}
+        covering the root part, each part's own .rels file, and all descendants;
+        `overrides` is a list of (part_name, content_type) for parts that carry a
+        content-type Override in the source package.
+        """
+        parts = []
+        overrides = []
+        seen = set()
+        queue = [root_part_path]
+
+        while queue:
+            path = queue.pop(0)
+            if path in seen:
+                continue
+            seen.add(path)
+            try:
+                data = zipf.read(path)
+            except KeyError:
+                continue
+
+            parts.append({'part_path': path, 'part_bytes': data})
+            ctype = self._content_type_overrides.get(f'/{path}')
+            if ctype:
+                overrides.append((f'/{path}', ctype))
+
+            dir_part, _, file_part = path.rpartition('/')
+            rels_path = f'{dir_part}/_rels/{file_part}.rels'
+            if rels_path in seen:
+                continue
+            try:
+                rels_bytes = zipf.read(rels_path)
+            except KeyError:
+                continue
+            seen.add(rels_path)
+            parts.append({'part_path': rels_path, 'part_bytes': rels_bytes})
+
+            try:
+                rels_root = ET.fromstring(rels_bytes)
+            except ET.ParseError:
+                continue
+            rns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+            for rel in rels_root.findall('r:Relationship', rns):
+                if rel.get('TargetMode', '') == 'External':
+                    continue
+                queue.append(self._resolve_part_path(dir_part, rel.get('Target', '')))
+
+        return parts, overrides
+
     def _apply_print_areas_from_defined_names(self):
         """
         Applies worksheet print area values from workbook defined names.
@@ -358,6 +478,48 @@ class XMLLoader:
             saver.register_default_styles()
             self.workbook._dxf_styles = []
     
+    @staticmethod
+    def _resolve_part_path(base_dir, target):
+        """
+        Resolves a relationship Target into a zip part name.
+
+        Targets are relative to the directory of the part that owns the rels file and
+        may walk out of it ("../customXml/item1.xml"), so the joined path has to be
+        normalized before it can be looked up in the archive.
+        """
+        if target.startswith('/'):
+            return target[1:]
+        return posixpath.normpath(posixpath.join(base_dir, target))
+
+    def _collect_child_parts(self, zipf, base_dir, rels_bytes):
+        """
+        Reads the internal parts referenced by a rels file.
+
+        Returns a list of dicts with part_path/part_bytes/content_type for every
+        target that exists in the archive.
+        """
+        try:
+            rels_root = ET.fromstring(rels_bytes)
+        except ET.ParseError:
+            return []
+
+        ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+        children = []
+        for rel in rels_root.findall('r:Relationship', ns):
+            if rel.get('TargetMode', '') == 'External':
+                continue
+            child_path = self._resolve_part_path(base_dir, rel.get('Target', ''))
+            try:
+                child_bytes = zipf.read(child_path)
+            except KeyError:
+                continue
+            children.append({
+                'part_path': child_path,
+                'part_bytes': child_bytes,
+                'content_type': self._content_type_overrides.get(f'/{child_path}'),
+            })
+        return children
+
     def _load_extra_workbook_rels(self, zipf):
         """
         Loads non-native workbook rels (e.g. externalLinks) for round-trip preservation.
@@ -373,11 +535,14 @@ class XMLLoader:
         ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
 
         # Rel types that the saver writes natively — skip these.
+        # Chartsheets are handled by _load_chartsheets/the chartsheet save path;
+        # capturing them here too would double-write their parts and mis-type them.
         NATIVE_TYPES = {
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles',
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings',
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+            self.CHARTSHEET_REL_TYPE,
         }
 
         extra_rels = []
@@ -386,7 +551,7 @@ class XMLLoader:
             if rel_type == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain':
                 target = rel.get('Target', '')
                 rel_id = rel.get('Id', '')
-                part_path = target[1:] if target.startswith('/') else f'xl/{target}'
+                part_path = self._resolve_part_path('xl', target)
                 try:
                     self.workbook._source_calc_chain_bytes = zipf.read(part_path)
                     self.workbook._source_calc_chain_rel = {
@@ -407,17 +572,19 @@ class XMLLoader:
             if target_mode == 'External':
                 continue
 
-            # Resolve path relative to xl/
-            if target.startswith('/'):
-                part_path = target[1:]
-            else:
-                part_path = 'xl/' + target
+            # Resolve path relative to xl/ (targets may escape it, e.g. ../customXml/item1.xml)
+            part_path = self._resolve_part_path('xl', target)
 
             part_bytes = None
             try:
                 part_bytes = zipf.read(part_path)
             except KeyError:
                 pass
+
+            # A relationship whose part is missing would be dangling in the output
+            # package, which makes Excel refuse to open the file. Drop it.
+            if part_bytes is None:
+                continue
 
             # Read the part's own rels file (e.g. externalLink1.xml.rels)
             dir_part, file_part = part_path.rsplit('/', 1)
@@ -427,6 +594,12 @@ class XMLLoader:
                 part_rels_bytes = zipf.read(part_rels_path)
             except KeyError:
                 pass
+
+            # Pull in the parts that the part's own rels point at (e.g. customXml
+            # itemProps), otherwise those rels dangle in turn.
+            child_parts = []
+            if part_rels_bytes is not None:
+                child_parts = self._collect_child_parts(zipf, dir_part, part_rels_bytes)
 
             # Look up content type from preloaded overrides
             content_type = self._content_type_overrides.get(f'/{part_path}')
@@ -439,6 +612,7 @@ class XMLLoader:
                 'part_bytes': part_bytes,
                 'part_rels_path': part_rels_path,
                 'part_rels_bytes': part_rels_bytes,
+                'child_parts': child_parts,
                 'content_type': content_type,
             })
 
@@ -458,8 +632,15 @@ class XMLLoader:
         # for sheet2), so we can avoid loading another sheet's file by accident.
         worksheets_and_roots = []
         for i, worksheet in enumerate(self.workbook._worksheets):
+            # Chartsheets are preserved verbatim elsewhere; they have no worksheet part.
+            if getattr(worksheet, '_is_chartsheet', False):
+                worksheets_and_roots.append((i, worksheet, None))
+                continue
+            # Locate the worksheet's own part. Defaults to the positional number, which
+            # only diverges when non-worksheet sheets (chartsheets) shift the numbering.
+            src_num = getattr(worksheet, '_source_sheet_num', i + 1)
             try:
-                worksheet_content = zipf.read(f'xl/worksheets/sheet{i+1}.xml')
+                worksheet_content = zipf.read(f'xl/worksheets/sheet{src_num}.xml')
                 worksheet_text = worksheet_content.decode('utf-8', errors='replace')
                 worksheet_root = ET.fromstring(worksheet_content)
                 worksheet._source_root_extra_attrs = self._extract_root_extra_attrs(worksheet_text, 'worksheet')
@@ -471,7 +652,7 @@ class XMLLoader:
                     m = re.search(r'ref="([^"]+)"', dimension_xml)
                     if m:
                         worksheet._source_dimension_ref = m.group(1)
-                self._load_extra_sheet_rels(zipf, worksheet, i+1)
+                self._load_extra_sheet_rels(zipf, worksheet, src_num)
                 worksheets_and_roots.append((i, worksheet, worksheet_root))
             except KeyError:
                 worksheets_and_roots.append((i, worksheet, None))
@@ -488,6 +669,7 @@ class XMLLoader:
         for i, worksheet, worksheet_root in worksheets_and_roots:
             if worksheet_root is None:
                 continue
+            src_num = getattr(worksheet, '_source_sheet_num', i + 1)
             try:
                 self._load_worksheet_data(worksheet, worksheet_root)
 
@@ -495,23 +677,23 @@ class XMLLoader:
                 # Skip if the default-numbered comments file (xl/comments{N}.xml) is
                 # claimed by a DIFFERENT sheet via that sheet's rels -- loading it here
                 # would assign another sheet's comments to the wrong worksheet.
-                default_comments_path = f'xl/comments{i+1}.xml'
+                default_comments_path = f'xl/comments{src_num}.xml'
                 comments_owner = claimed_comments_paths.get(default_comments_path)
                 if comments_owner is None or comments_owner is worksheet:
-                    self._comment_reader.load_comments(zipf, worksheet, i+1)
+                    self._comment_reader.load_comments(zipf, worksheet, src_num)
 
                 # Load hyperlinks for this worksheet
-                self._hyperlink_loader.load_hyperlinks(worksheet, worksheet_root, zipf, i+1)
+                self._hyperlink_loader.load_hyperlinks(worksheet, worksheet_root, zipf, src_num)
 
                 # Load charts for this worksheet
                 self._chart_loader.load_charts(
-                    worksheet, worksheet_root, zipf, i+1,
+                    worksheet, worksheet_root, zipf, src_num,
                     content_type_overrides=self._content_type_overrides,
                     content_type_defaults=self._content_type_defaults,
                 )
 
                 # Load tables for this worksheet
-                self._table_loader.load_tables(worksheet, worksheet_root, zipf, i+1)
+                self._table_loader.load_tables(worksheet, worksheet_root, zipf, src_num)
 
                 # Load sparklines for this worksheet (inline in extLst — no zipf needed)
                 self._sparkline_loader.load_sparklines(worksheet, worksheet_root)
@@ -558,18 +740,32 @@ class XMLLoader:
 
             # Resolve part path relative to xl/worksheets/
             # Target is like "../vmlDrawing1.vml" → "xl/vmlDrawing1.vml"
-            if target.startswith('../'):
-                part_path = 'xl/' + target[3:]
-            elif target.startswith('/'):
-                part_path = target[1:]
-            else:
-                part_path = 'xl/worksheets/' + target
+            part_path = self._resolve_part_path('xl/worksheets', target)
 
             part_bytes = None
             try:
                 part_bytes = zipf.read(part_path)
             except KeyError:
                 pass
+
+            # Emitting a rel whose part is missing produces a dangling relationship
+            # in the output package, which makes Excel refuse to open the file.
+            if part_bytes is None:
+                continue
+
+            # A vmlDrawing carries its own rels when it embeds an image, and those
+            # r:ids dangle just as badly if the .rels part or the media it points at
+            # is left out of the saved package.
+            dir_part, _, file_part = part_path.rpartition('/')
+            part_rels_path = f'{dir_part}/_rels/{file_part}.rels'
+            try:
+                part_rels_bytes = zipf.read(part_rels_path)
+            except KeyError:
+                part_rels_bytes = None
+
+            child_parts = []
+            if part_rels_bytes is not None:
+                child_parts = self._collect_child_parts(zipf, dir_part, part_rels_bytes)
 
             extra_rels.append({
                 'rel_id': rel_id,
@@ -578,6 +774,9 @@ class XMLLoader:
                 'target_mode': target_mode,
                 'part_path': part_path,
                 'part_bytes': part_bytes,
+                'part_rels_path': part_rels_path,
+                'part_rels_bytes': part_rels_bytes,
+                'child_parts': child_parts,
             })
 
         if extra_rels:

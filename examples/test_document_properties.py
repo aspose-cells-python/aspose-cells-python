@@ -41,7 +41,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.core.description = "Test description"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "core_properties_basic.xlsx")
+        path = os.path.join(self.test_dir, "example_core_properties_basic.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -88,7 +88,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.core.content_status = "Draft"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "core_properties_extended.xlsx")
+        path = os.path.join(self.test_dir, "example_core_properties_extended.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -130,7 +130,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.core.modified = test_modified
 
         # Save and reload
-        path = os.path.join(self.test_dir, "core_properties_dates.xlsx")
+        path = os.path.join(self.test_dir, "example_core_properties_dates.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -162,7 +162,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.extended.manager = "Test Manager"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "extended_properties_basic.xlsx")
+        path = os.path.join(self.test_dir, "example_extended_properties_basic.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -204,7 +204,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.extended.doc_security = 1
 
         # Save and reload
-        path = os.path.join(self.test_dir, "extended_properties_flags.xlsx")
+        path = os.path.join(self.test_dir, "example_extended_properties_flags.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -243,7 +243,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.extended.hyperlink_base = "https://example.com/docs/"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "extended_properties_hyperlink.xlsx")
+        path = os.path.join(self.test_dir, "example_extended_properties_hyperlink.xlsx")
         wb.save(path)
 
         # Verify XML structure
@@ -275,7 +275,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.manager = "Convenience Manager"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "convenience_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_convenience_properties.xlsx")
         wb.save(path)
 
         # Reload and verify
@@ -322,7 +322,7 @@ class TestDocumentProperties(unittest.TestCase):
         ws.cells["A2"].value = 123
 
         # Save and reload
-        path = os.path.join(self.test_dir, "comprehensive_document_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_comprehensive_document_properties.xlsx")
         wb.save(path)
 
         # Reload and verify
@@ -365,7 +365,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.core.keywords = "test & special, <chars>"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "special_characters_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_special_characters_properties.xlsx")
         wb.save(path)
 
         # Reload and verify
@@ -384,7 +384,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.core.description = "这是一份测试文档，包含Unicode字符"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "unicode_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_unicode_properties.xlsx")
         wb.save(path)
 
         # Reload and verify
@@ -402,7 +402,7 @@ class TestDocumentProperties(unittest.TestCase):
         ws.cells["A1"].value = "Test"
 
         # Save and reload
-        path = os.path.join(self.test_dir, "default_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_default_properties.xlsx")
         wb.save(path)
 
         # Reload and verify defaults
@@ -427,7 +427,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb1.document_properties.core.title = "Workbook 1"
         wb1.document_properties.core.creator = "Author 1"
         wb1.document_properties.extended.company = "Company 1"
-        path1 = os.path.join(self.test_dir, "workbook1_properties.xlsx")
+        path1 = os.path.join(self.test_dir, "example_workbook1_properties.xlsx")
         wb1.save(path1)
 
         # Create second workbook with different properties
@@ -435,7 +435,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb2.document_properties.core.title = "Workbook 2"
         wb2.document_properties.core.creator = "Author 2"
         wb2.document_properties.extended.company = "Company 2"
-        path2 = os.path.join(self.test_dir, "workbook2_properties.xlsx")
+        path2 = os.path.join(self.test_dir, "example_workbook2_properties.xlsx")
         wb2.save(path2)
 
         # Verify first workbook
@@ -459,7 +459,7 @@ class TestDocumentProperties(unittest.TestCase):
         wb.document_properties.extended.company = "Test Company"
 
         # Save
-        path = os.path.join(self.test_dir, "xml_structure_properties.xlsx")
+        path = os.path.join(self.test_dir, "example_xml_structure_properties.xlsx")
         wb.save(path)
 
         # Verify core.xml structure

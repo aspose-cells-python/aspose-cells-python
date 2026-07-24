@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from aspose.cells_foss import Workbook, Style
+from examples.output_path_helper import examples_output_path
 
 
 class TestWorksheetProtection(unittest.TestCase):
@@ -60,7 +61,7 @@ class TestWorksheetProtection(unittest.TestCase):
         self.assertTrue(ws.protection['protected'], "Worksheet protection should be enabled")
         
         # Save the workbook
-        output_file = "outputfiles/test_worksheet_protection.xlsx"
+        output_file = examples_output_path("example_test_worksheet_protection.xlsx")
         print(f"\nSaving workbook to {output_file}...")
         wb.save(output_file)
         
@@ -125,7 +126,7 @@ class TestWorksheetProtection(unittest.TestCase):
         self.assertFalse(ws.protection['protected'], "Worksheet protection should be disabled")
         
         # Save and verify
-        output_file = "outputfiles/test_worksheet_unprotect.xlsx"
+        output_file = examples_output_path("example_test_worksheet_unprotect.xlsx")
         print(f"\nSaving workbook to {output_file}...")
         wb.save(output_file)
         
@@ -186,7 +187,7 @@ class TestWorksheetProtection(unittest.TestCase):
         self.assertTrue(ws.protection['auto_filter'], "auto_filter should be True")
         
         # Save and verify
-        output_file = "outputfiles/test_worksheet_protection_options.xlsx"
+        output_file = examples_output_path("example_test_worksheet_protection_options.xlsx")
         print(f"\nSaving workbook to {output_file}...")
         wb.save(output_file)
         

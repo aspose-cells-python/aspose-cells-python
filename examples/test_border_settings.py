@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aspose.cells_foss import Workbook, Worksheet, Cell, Style
+from examples.output_path_helper import examples_output_path
 
 
 class TestBorderSettings(unittest.TestCase):
@@ -230,10 +231,7 @@ class TestBorderSettings(unittest.TestCase):
         self.test_comprehensive_border_test()
         
         # Save to outputfiles folder
-        output_path = 'outputfiles/test_border_settings.xlsx'
-        
-        # Ensure outputfiles directory exists
-        os.makedirs('outputfiles', exist_ok=True)
+        output_path = examples_output_path('example_test_border_settings.xlsx')
         
         self.workbook.save(output_path)
         
@@ -251,8 +249,7 @@ class TestBorderSettings(unittest.TestCase):
         """Test loading and verifying border settings from file."""
         # First, save a file with border settings
         self.test_comprehensive_border_test()
-        output_path = 'outputfiles/test_border_settings.xlsx'
-        os.makedirs('outputfiles', exist_ok=True)
+        output_path = examples_output_path('example_test_border_settings.xlsx')
         self.workbook.save(output_path)
         
         # Load the file back
